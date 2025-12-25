@@ -8,7 +8,8 @@ import ShipDetailView from '../stores/views/ShipDetailView.vue'
 import AnalyticsView from '../stores/views/AnalyticsView.vue'
 import SettingsView from '../stores/views/SettingsView.vue'
 import UsageView from '../views/UsageView.vue' // <--- MỚI: Báo cáo lưu lượng
-
+import OnlineUsersView from '../views/OnlineUsersView.vue' // <--- Import
+import VoucherView from '../views/VoucherView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -46,7 +47,19 @@ const router = createRouter({
       name: 'settings', 
       component: SettingsView, 
       meta: { requiresAuth: true } 
-    }
+    },
+    { 
+    path: '/online-users', 
+    name: 'online-users', 
+    component: OnlineUsersView, 
+    meta: { requiresAuth: true } 
+},
+{ 
+    path: '/vouchers', 
+    name: 'vouchers', 
+    component: VoucherView, 
+    meta: { requiresAuth: true } 
+},
   ]
 })
 

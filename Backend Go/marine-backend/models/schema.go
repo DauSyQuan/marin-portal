@@ -48,3 +48,18 @@ type ResetInput struct {
 	NewPassword string `json:"new_password" binding:"required"`
 	SecretKey   string `json:"secret_key" binding:"required"`
 }
+type Voucher struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	Code      string    `json:"code"`       // Mã Voucher (VOU-XXXX)
+	DataPlan  string    `json:"data_plan"`  // Gói cước (1GB, 5GB...)
+	Status    string    `json:"status"`     // Unused, Assigned, Used, Expired
+	CreatedBy string    `json:"created_by"` // Admin tạo
+	
+	// Liên kết với Thủy thủ (Crew)
+	AssignTo  string    `json:"assign_to"`  // Tên thủy thủ (Lưu tên cho đơn giản)
+	CrewID    uint      `json:"crew_id"`    // ID thủy thủ
+	
+	UsedAt    time.Time `json:"used_at"`
+	CreatedAt time.Time `json:"created_at"`
+	ValidDays int       `json:"valid_days"` // Hạn sử dụng (ngày)
+}

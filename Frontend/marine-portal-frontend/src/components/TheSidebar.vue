@@ -39,6 +39,15 @@ const auth = useAuthStore();
         <span>User Monthly Usage</span>
       </router-link>
 
+      <router-link to="/online-users" class="nav-link" active-class="active">
+        <i class="fa-solid fa-laptop-code me-2"></i> <!-- Icon laptop -->
+        <span>Online Users</span>
+      </router-link>
+      <router-link to="/vouchers" class="nav-link" active-class="active">
+        <i class="fa-solid fa-ticket me-2"></i>
+        <span>Vouchers</span>
+      </router-link>
+
       <router-link to="/settings" class="nav-link" active-class="active">
         <i class="fa-solid fa-gear"></i>
         <span>System Config</span>

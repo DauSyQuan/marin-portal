@@ -35,6 +35,11 @@ func SetupRouter() *gin.Engine {
 		api.GET("/report/:id", controllers.DownloadReport) 
 		api.PUT("/crew/:id", controllers.UpdateCrew)
 		api.GET("/usage-report", controllers.GetMonthlyUsage)
+		api.GET("/online-users", controllers.GetOnlineUsers)
+    	api.POST("/online-users/:username/kick", controllers.KickUser)
+		api.GET("/vouchers", controllers.GetVouchers)
+		api.POST("/vouchers", controllers.CreateVoucher)
+		api.PUT("/vouchers/:id/assign", controllers.AssignVoucher) // API Gán
 	}
 
 	return r

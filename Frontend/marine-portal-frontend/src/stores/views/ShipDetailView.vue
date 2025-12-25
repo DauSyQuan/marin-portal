@@ -8,41 +8,35 @@ import VsatChart from '@/components/VsatChart.vue';
 const route = useRoute();
 const router = useRouter();
 const store = useFleetStore();
-const downloadPdf = () => {
-    // Mở tab mới gọi thẳng vào API backend để tải file
-    window.open(`http://localhost:8080/api/report/${route.params.id}`, '_blank');
-};
-// Biến cho biểu đồ và map
+
 const liveSnr = ref(0);
-const mapMode = ref('internal'); // 'internal' hoặc 'marinetraffic'
+const mapMode = ref('internal');
 let simulationInterval = null;
 
-// Tìm thông tin tàu
 const ship = computed(() => store.ships.find(s => s.id === route.params.id));
 
-// Hàm tạo link MarineTraffic Embed
 const getMarineTrafficUrl = (ship) => {
     let id = ship.id.replace('IMO', '');
-    // Nếu ID quá ngắn (dữ liệu ảo), dùng ID thật của tàu VIMC Diamond để demo
     if (id.length < 7) id = '9330264'; 
     return `https://www.marinetraffic.com/en/ais/embed/map/imo:${id}/latitude:${ship.lat}/longitude:${ship.lon}/zoom:9`;
 };
 
-onMounted(async () => {
-    // 1. Nếu chưa có dữ liệu thì gọi API tải về
-    if (store.ships.length === 0) await store.fetchFleet();
-    
-    // 2. Thiết lập giá trị ban đầu
-    if (ship.value) {
-        liveSnr.value = ship.value.snr;
-    }
+const downloadPdf = () => {
+    window.open(`http://localhost:8080/api/report/${route.params.id}`, '_blank');
+};
 
-    // 3. Giả lập SNR nhảy múa (Simulation)
+const formatCoord = (val, type) => {
+    return `${val?.toFixed(4)}° ${type === 'lat' ? (val>0?'N':'S') : (val>0?'E':'W')}`;
+};
+
+onMounted(async () => {
+    if (store.ships.length === 0) await store.fetchFleet();
+    if (ship.value) liveSnr.value = ship.value.snr;
+
     simulationInterval = setInterval(() => {
         if (ship.value) {
             const base = ship.value.status === 'Offline' ? 0 : ship.value.snr;
-            const fluctuation = (Math.random() - 0.5); 
-            liveSnr.value = parseFloat((base + fluctuation).toFixed(1));
+            liveSnr.value = parseFloat((base + (Math.random() - 0.5)).toFixed(1));
         }
     }, 1000);
 });
@@ -54,70 +48,99 @@ onUnmounted(() => {
 
 <template>
     <div class="container-fluid p-0">
-        <!-- HEADER: Back Button & Title -->
-        <div class="d-flex align-items-center mb-4">
-            <button class="btn btn-white border me-3 shadow-sm bg-white" @click="router.push('/')">
-                <i class="fa-solid fa-arrow-left me-1"></i> Back
-            </button>
-            <div class="me-auto"> <!-- Thêm div bọc tiêu đề để đẩy nút kia sang phải -->
-        <div v-if="ship">
-             <!-- ... code hiển thị tên tàu cũ ... -->
-        </div>
-    </div>
-    
-    <!-- NÚT DOWNLOAD PDF MỚI -->
-    <button v-if="ship" class="btn btn-outline-primary shadow-sm" @click="downloadPdf">
-        <i class="fa-solid fa-file-pdf me-2"></i>Download Report
-    </button>
-            <div v-if="ship">
-                <div class="d-flex align-items-center">
-                    <h3 class="fw-bold text-dark m-0 me-3">{{ ship.name }}</h3>
-                    <span class="badge" :class="ship.status === 'Online' ? 'bg-success' : 'bg-danger'">
-                        {{ ship.status }}
-                    </span>
+        <!-- HEADER: BREADCRUMB & CONTROLS -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-secondary border-0 me-2" @click="router.push('/')">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div>
+                    <div class="text-uppercase text-secondary" style="font-size: 0.65rem; letter-spacing: 1px;">Vessel Monitor</div>
+                    <h3 class="fw-bold m-0 d-flex align-items-center">
+                        {{ ship?.name }}
+                        <span v-if="ship" class="badge ms-3 fs-6 rounded-pill" 
+                            :class="ship.status === 'Online' ? 'bg-success' : 'bg-danger'">
+                            {{ ship.status }}
+                        </span>
+                    </h3>
                 </div>
-                <span class="text-secondary small">IMO: {{ ship.id }} • {{ ship.type }}</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-white border shadow-sm fw-bold text-secondary">
+                    <i class="fa-solid fa-envelope me-2"></i> Email Logs
+                </button>
+                <button class="btn btn-primary shadow fw-bold" @click="downloadPdf">
+                    <i class="fa-solid fa-file-pdf me-2"></i> Voyage Report
+                </button>
             </div>
         </div>
 
-        <!-- Cảnh báo nếu không tìm thấy tàu -->
-        <div v-if="!ship && !store.loading" class="alert alert-danger">
-            Vessel Not Found. Please return to dashboard.
-        </div>
+        <div v-if="!ship" class="alert alert-warning">Loading vessel data...</div>
 
-        <!-- LAYOUT CHÍNH: 2 CỘT -->
         <div v-if="ship" class="row g-4">
             
-            <!-- CỘT TRÁI: THÔNG TIN & BIỂU ĐỒ -->
-            <div class="col-md-4">
+            <!-- TELEMETRY STRIP (Dải thông số kỹ thuật) -->
+            <div class="col-12">
+                <div class="card border-0 shadow-sm bg-dark text-white">
+                    <div class="card-body d-flex justify-content-between align-items-center py-3">
+                        <div class="d-flex gap-5">
+                            <div>
+                                <small class="text-white-50 text-uppercase d-block" style="font-size: 0.7rem;">IMO Number</small>
+                                <span class="font-monospace fw-bold">{{ ship.id }}</span>
+                            </div>
+                            <div>
+                                <small class="text-white-50 text-uppercase d-block" style="font-size: 0.7rem;">Position (Lat/Lon)</small>
+                                <span class="font-monospace text-info">
+                                    <i class="fa-solid fa-location-crosshairs me-1"></i>
+                                    {{ formatCoord(ship.lat, 'lat') }} / {{ formatCoord(ship.lon, 'lon') }}
+                                </span>
+                            </div>
+                            <div>
+                                <small class="text-white-50 text-uppercase d-block" style="font-size: 0.7rem;">Heading / Speed</small>
+                                <span class="font-monospace text-warning">124° / 14.2 kn</span>
+                            </div>
+                        </div>
+                        <div class="border-start border-white border-opacity-10 ps-4">
+                            <small class="text-white-50 text-uppercase d-block" style="font-size: 0.7rem;">Last Contact</small>
+                            <span class="text-white"><i class="fa-solid fa-satellite me-2"></i>Just now</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CỘT TRÁI: KẾT NỐI & BIỂU ĐỒ -->
+            <div class="col-lg-4">
                 <div class="card shadow-sm border-0 h-100">
-                    <div class="card-header bg-white fw-bold py-3">Vessel Information</div>
+                    <div class="card-header bg-white py-3 fw-bold border-bottom">
+                        <i class="fa-solid fa-network-wired me-2 text-primary"></i>Connection Health
+                    </div>
                     <div class="card-body d-flex flex-column">
-                        <ul class="list-group list-group-flush mb-3">
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-secondary">Owner</span> <strong class="text-dark">{{ ship.company }}</strong>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-secondary">IP Address</span> <strong class="font-monospace text-primary">{{ ship.ip }}</strong>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-secondary">Satellite</span> <strong class="text-primary">{{ ship.satellite }}</strong>
-                            </li>
-                        </ul>
-                        
-                        <!-- Chart Section -->
-                        <div class="mt-auto">
-                            <h6 class="small fw-bold text-secondary text-uppercase mb-3 border-top pt-3">
-                                <i class="fa-solid fa-wave-square me-2"></i>Live VSAT Monitor
-                            </h6>
-                            <div class="d-flex align-items-end mb-2">
-                                <div class="display-4 fw-bold text-primary me-2">{{ liveSnr }}</div>
-                                <div class="mb-2 text-secondary">dB</div>
-                                <div class="ms-auto mb-2 badge bg-success bg-opacity-10 text-success animate-pulse">
-                                    <i class="fa-solid fa-circle fa-2xs me-1"></i> Live
+                        <!-- Info Grid -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <small class="text-secondary d-block">IP Address</small>
+                                    <strong class="font-monospace text-dark">{{ ship.ip }}</strong>
                                 </div>
                             </div>
-                            <div style="height: 180px; margin-left: -10px; margin-right: -10px;">
+                            <div class="col-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <small class="text-secondary d-block">Satellite Beam</small>
+                                    <strong class="text-dark">{{ ship.satellite }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Chart -->
+                        <div class="mt-auto">
+                            <div class="d-flex justify-content-between align-items-end mb-2">
+                                <div>
+                                    <small class="text-uppercase text-secondary fw-bold">Live SNR</small>
+                                    <div class="display-4 fw-bold text-primary" style="line-height: 1;">{{ liveSnr }} <span class="fs-4 text-muted">dB</span></div>
+                                </div>
+                                <div class="spinner-grow text-success spinner-grow-sm" role="status"></div>
+                            </div>
+                            <div style="height: 200px; margin: 0 -15px;">
                                 <VsatChart :snr="liveSnr" />
                             </div>
                         </div>
@@ -126,31 +149,26 @@ onUnmounted(() => {
             </div>
 
             <!-- CỘT PHẢI: BẢN ĐỒ -->
-            <div class="col-md-8">
-                <div class="card shadow-sm border-0 h-100 position-relative">
-                    
-                    <!-- Map Control Buttons -->
-                    <div class="position-absolute top-0 end-0 m-3 z-3 bg-white p-1 rounded shadow-sm">
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0 h-100 position-relative overflow-hidden">
+                    <div class="position-absolute top-0 end-0 m-3 z-3 bg-white p-1 rounded shadow-sm border">
                         <div class="btn-group btn-group-sm">
-                            <button class="btn" :class="mapMode === 'internal' ? 'btn-primary' : 'btn-light'" @click="mapMode = 'internal'">Internal GPS</button>
-                            <button class="btn" :class="mapMode === 'marinetraffic' ? 'btn-primary' : 'btn-light'" @click="mapMode = 'marinetraffic'">MarineTraffic</button>
+                            <button class="btn fw-bold" :class="mapMode === 'internal' ? 'btn-primary' : 'btn-light'" @click="mapMode = 'internal'">GPS Mode</button>
+                            <button class="btn fw-bold" :class="mapMode === 'marinetraffic' ? 'btn-primary' : 'btn-light'" @click="mapMode = 'marinetraffic'">Traffic View</button>
                         </div>
                     </div>
-
-                    <div class="card-body p-0 h-100" style="min-height: 500px; overflow: hidden; border-radius: 8px;">
-                        <!-- Mode 1: Internal Map -->
+                    <div class="h-100 w-100" style="min-height: 500px;">
                         <BaseMap v-if="mapMode === 'internal'" :lat="ship.lat" :lon="ship.lon" />
-                        
-                        <!-- Mode 2: MarineTraffic -->
-                        <iframe v-else
-                            width="100%" height="100%" scrolling="no" frameborder="0"
-                            :src="getMarineTrafficUrl(ship)"
-                            style="border:0">
-                        </iframe>
+                        <iframe v-else width="100%" height="100%" :src="getMarineTrafficUrl(ship)" style="border:0"></iframe>
                     </div>
                 </div>
             </div>
-            
+
         </div>
     </div>
 </template>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+.font-monospace { font-family: 'JetBrains Mono', monospace; }
+</style>

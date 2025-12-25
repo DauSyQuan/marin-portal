@@ -1,48 +1,59 @@
-import { createRouter, createWebHistory } from "vue-router";
-import { useAuthStore } from "../stores/auth";
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
-// Lazy imports từ src/stores/views/
-const LoginView = () => import("../stores/views/LoginView.vue");
-const DashboardView = () => import("../stores/views/DashboardView.vue");
-const ShipDetailView = () => import("../stores/views/ShipDetailView.vue");
-
-// ✅ thêm 2 view match sidebar
-const AnalyticsView = () => import("../stores/views/AnalyticsView.vue");
-const SettingsView = () => import("../stores/views/SettingsView.vue");
+// Import các màn hình (Chỉ import 1 lần mỗi file)
+import DashboardView from '../stores/views/DashboardView.vue'
+import LoginView from '../stores/views/LoginView.vue'
+import ShipDetailView from '../stores/views/ShipDetailView.vue'
+import AnalyticsView from '../stores/views/AnalyticsView.vue'
+import SettingsView from '../stores/views/SettingsView.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: "/login", name: "Login", component: LoginView },
+    { 
+      path: '/login', 
+      component: LoginView 
+    },
+    { 
+      path: '/', 
+      component: DashboardView, 
+      meta: { requiresAuth: true } 
+    },
+    { 
+      path: '/ship/:id', 
+      component: ShipDetailView, 
+      meta: { requiresAuth: true } 
+    },
+    { 
+      path: '/analytics', 
+      component: AnalyticsView, 
+      meta: { requiresAuth: true } 
+    },
+    { 
+      path: '/settings', 
+      component: SettingsView, 
+      meta: { requiresAuth: true } 
+    }
+  ]
+})
 
-    { path: "/", name: "Dashboard", component: DashboardView, meta: { requiresAuth: true } },
-
-    { path: "/ship/:id", name: "ShipDetail", component: ShipDetailView, meta: { requiresAuth: true } },
-
-    // ✅ NEW: fix /analytics & /settings warnings
-    { path: "/analytics", name: "Analytics", component: AnalyticsView, meta: { requiresAuth: true } },
-
-    { path: "/settings", name: "Settings", component: SettingsView, meta: { requiresAuth: true } },
-
-    // optional fallback
-    { path: "/:pathMatch(.*)*", redirect: "/" },
-  ],
-});
-
-// Router guard: chặn nếu chưa login
+// Chặn truy cập nếu chưa đăng nhập
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
+  const publicPages = ['/login'];
+  const authRequired = !publicPages.includes(to.path);
 
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return next({ name: "Login" });
+  if (authRequired && !auth.isAuthenticated) {
+    return next('/login');
   }
 
-  // Nếu đã login mà vẫn vào /login thì đá về dashboard
-  if (to.name === "Login" && auth.isAuthenticated) {
-    return next({ name: "Dashboard" });
+  // Đã login thì không cho vào trang login nữa
+  if (to.path === '/login' && auth.isAuthenticated) {
+    return next('/');
   }
 
   next();
 });
 
-export default router;
+export default router

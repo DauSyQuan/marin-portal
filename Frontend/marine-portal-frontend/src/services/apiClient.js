@@ -1,12 +1,14 @@
 import axios from "axios";
 
-// Dùng biến môi trường Vite
+// Gọi thẳng vào Backend ở port 8080
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080",
-  timeout: 15000,
+  baseURL: "http://localhost:8080", 
+  timeout: 10000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Gắn token tự động
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -15,16 +17,17 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle lỗi tập trung
+// Xử lý lỗi token hết hạn
 apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Nếu backend trả 401 => token invalid/expired
     if (err?.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      // redirect nhẹ nhàng (tránh import router trong file này)
-      window.location.href = "/login";
+      // Chỉ redirect nếu không phải đang ở trang login
+      if (window.location.pathname !== '/login') {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(err);
   }

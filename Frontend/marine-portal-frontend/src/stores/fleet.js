@@ -1,81 +1,61 @@
-import { defineStore } from "pinia";
-import apiClient from "@/services/apiClient";
+import { defineStore } from 'pinia'
+import axios from 'axios'
 
-export const useFleetStore = defineStore("fleet", {
-  state: () => ({
-    ships: [],
-    loading: false,
-    error: null,
-    searchQuery: "",
-    addLoading: false,
-    addError: null,
-  }),
+export const useFleetStore = defineStore('fleet', {
+    state: () => ({
+        ships: [],
+        loading: false,
+        filterText: ''
+    }),
+    
+    getters: {
+        // Tính toán thống kê từ dữ liệu thật
+        stats(state) {
+            const total = state.ships.length;
+            const online = state.ships.filter(s => s.status === 'Online').length;
+            const offline = state.ships.filter(s => s.status === 'Offline').length;
+            const warning = state.ships.filter(s => s.status === 'Warning' || s.status === 'Blockage').length;
+            
+            // Công thức tính điểm sức khỏe hệ thống
+            const health = total > 0 ? ((online + (warning * 0.5)) / total * 100).toFixed(1) : 0;
 
-  getters: {
-    filteredShips(state) {
-      const q = state.searchQuery.trim().toLowerCase();
-      if (!q) return state.ships;
-
-      // Tối ưu: hạn chế toLowerCase nhiều lần
-      return state.ships.filter((s) => (s._searchText || "").includes(q));
+            return [
+                { label: 'Total Fleet', value: total, color: 'primary', icon: 'fa-solid fa-ship' },
+                { label: 'System Health', value: health + '%', color: 'success', icon: 'fa-solid fa-heart-pulse' },
+                { label: 'Critical Alerts', value: offline, color: 'danger', icon: 'fa-solid fa-triangle-exclamation' },
+                { label: 'Warnings', value: warning, color: 'warning', icon: 'fa-solid fa-circle-exclamation' }
+            ];
+        },
+        
+        // Lọc danh sách tàu
+        filteredShips(state) {
+            if (!state.filterText) return state.ships;
+            const term = state.filterText.toLowerCase();
+            return state.ships.filter(s => 
+                s.name.toLowerCase().includes(term) || 
+                s.id.toLowerCase().includes(term) ||
+                s.company.toLowerCase().includes(term)
+            );
+        }
     },
 
-    stats(state) {
-      // Tối ưu: duyệt 1 lần
-      let total = state.ships.length;
-      let online = 0, offline = 0, warning = 0;
-
-      for (const s of state.ships) {
-        if (s.status === "Online") online++;
-        else if (s.status === "Offline") offline++;
-        else if (s.status === "Warning") warning++;
-      }
-
-      return { total, online, offline, warning };
-    },
-  },
-
-  actions: {
-    _decorateShips(list) {
-      // tạo searchable text 1 lần
-      return list.map((s) => ({
-        ...s,
-        _searchText: `${s.name || ""} ${s.id || ""} ${s.company || ""}`.toLowerCase(),
-      }));
-    },
-
-    async fetchFleet() {
-      this.loading = true;
-      this.error = null;
-
-      try {
-        const res = await apiClient.get("/api/ships");
-        this.ships = this._decorateShips(res.data);
-      } catch (err) {
-        this.error = err?.response?.data?.message || "Không tải được danh sách tàu.";
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    async addShip(newShip) {
-      this.addLoading = true;
-      this.addError = null;
-
-      try {
-        const res = await apiClient.post("/api/ships", newShip);
-        this.ships.unshift({
-          ...res.data,
-          _searchText: `${res.data.name || ""} ${res.data.id || ""} ${res.data.company || ""}`.toLowerCase(),
-        });
-      } catch (err) {
-        const status = err?.response?.status;
-        if (status === 409) this.addError = "Trùng ID tàu. Vui lòng chọn ID khác.";
-        else this.addError = err?.response?.data?.error || "Thêm tàu thất bại.";
-        throw err;
-      } finally {
-        this.addLoading = false;
-      }
-    },
-  },
-});
+    actions: {
+        async fetchFleet() {
+            this.loading = true;
+            try {
+                // GỌI API TỪ SERVER GO (Port 8080)
+                const response = await axios.get('http://localhost:8080/api/ships');
+                
+                // Gán dữ liệu thật vào biến ships
+                this.ships = response.data;
+                console.log("Đã tải dữ liệu từ Backend:", this.ships.length, "tàu");
+                
+            } catch (error) {
+                console.error("Lỗi kết nối Backend:", error);
+                alert("Không thể kết nối tới Server Go! Hãy kiểm tra xem Backend chạy chưa.");
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+})

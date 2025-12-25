@@ -1,15 +1,13 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, computed } from 'vue';
 import { useFleetStore } from '@/stores/fleet';
-import { Modal } from 'bootstrap'; // Import Bootstrap Modal
+import { Modal } from 'bootstrap';
 
 const store = useFleetStore();
-
-// Biến quản lý Modal
 let modalInstance = null;
 const modalRef = ref(null);
 
-// Form dữ liệu thêm mới
+// Form dữ liệu
 const form = reactive({
     id: '', name: '', company: 'VIMC Lines', 
     type: 'Container', ip: '10.10.x.x', 
@@ -19,13 +17,10 @@ const form = reactive({
 
 onMounted(() => {
     store.fetchFleet();
-    // Khởi tạo Modal Bootstrap khi trang tải xong
-    if(modalRef.value) {
-        modalInstance = new Modal(modalRef.value);
-    }
+    if(modalRef.value) modalInstance = new Modal(modalRef.value);
 });
 
-// 1. HÀM MỞ MODAL (Reset form và hiện bảng nhập)
+// --- LOGIC MODAL ---
 const openAddModal = () => {
     Object.assign(form, { 
         id: '', name: '', company: 'VIMC Lines', 
@@ -36,176 +31,259 @@ const openAddModal = () => {
     modalInstance.show();
 };
 
-// 2. HÀM LƯU TÀU (Gửi dữ liệu lên Backend)
 const saveShip = async () => {
-    // Validate cơ bản
     if(!form.id || !form.name) return alert("Vui lòng nhập ID và Tên tàu!");
-    
-    // Ép kiểu dữ liệu sang số thực (Float) để Backend Go hiểu
     const payload = {
         ...form,
         lat: parseFloat(form.lat || 0),
         lon: parseFloat(form.lon || 0),
-        snr: 12.0,       // Mặc định
-        status: 'Online' // Mặc định
+        snr: 12.0, status: 'Online'
     };
-
-    console.log("Đang gửi dữ liệu:", payload);
-
-    // Gọi Store để post API
     const success = await store.addShip(payload);
-    
     if(success) {
-        modalInstance.hide(); // Tắt modal nếu thành công
-        // Reset form để tránh lỗi lưu đè lần sau
+        modalInstance.hide();
         Object.assign(form, { id: '', name: '', lat: 0, lon: 0 });
     }
 };
 
-// Hàm CSS trạng thái
+// --- LOGIC GIAO DIỆN PRO ---
+
+// 1. Icon theo loại tàu
+const getShipIcon = (type) => {
+    if(type?.includes('Container')) return 'fa-solid fa-ship';
+    if(type?.includes('Tanker') || type?.includes('Oil')) return 'fa-solid fa-oil-well';
+    if(type?.includes('Bulk')) return 'fa-solid fa-cubes-stacked';
+    if(type?.includes('Drill')) return 'fa-solid fa-screwdriver-wrench';
+    return 'fa-solid fa-anchor';
+};
+
+// 2. Tính % tín hiệu để vẽ thanh Progress (Max 20dB)
+const getSignalPercent = (snr) => {
+    const val = parseFloat(snr);
+    if(isNaN(val) || val < 0) return 0;
+    return Math.min((val / 20) * 100, 100);
+};
+
+// 3. Màu sắc thanh tín hiệu
+const getSignalColor = (snr) => {
+    if(snr >= 12) return 'bg-success';
+    if(snr >= 5) return 'bg-warning';
+    return 'bg-danger';
+};
+
+// 4. Format tọa độ cho ngầu (DMS fake)
+const formatCoord = (lat, lon) => {
+    return `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`;
+};
+
 const statusClass = (status) => {
-    if(status === 'Online') return 'bg-success text-success border-success';
-    if(status === 'Warning') return 'bg-warning text-warning border-warning';
-    if(status === 'Blockage') return 'bg-danger text-danger border-danger';
-    return 'bg-secondary text-secondary border-secondary';
+    if(status === 'Online') return 'bg-success-subtle text-success border-success';
+    if(status === 'Warning') return 'bg-warning-subtle text-warning border-warning';
+    return 'bg-danger-subtle text-danger border-danger';
 };
 </script>
 
 <template>
   <div class="container-fluid p-0">
-    <!-- HEADER DASHBOARD -->
-    <div class="d-flex justify-content-between align-items-end mb-4">
+    
+    <!-- HEADER: COMMAND CENTER STYLE -->
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
-            <h6 class="text-secondary text-uppercase mb-1 fw-bold" style="font-size: 0.7rem;">Dashboard</h6>
-            <h2 class="fw-bold text-dark m-0">Fleet Command Center</h2>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary text-white">LIVE</span>
+                <small class="text-secondary fw-bold text-uppercase tracking-wide">Global Fleet Ops</small>
+            </div>
+            <h3 class="fw-bold text-dark m-0">Command Center <span class="text-primary">.</span></h3>
         </div>
-        <div>
-            <button class="btn btn-white border me-2 shadow-sm bg-white" @click="store.fetchFleet">
-                <i class="fa-solid fa-rotate me-2 text-secondary"></i> Refresh
+        <div class="d-flex gap-2">
+            <button class="btn btn-light border shadow-sm fw-bold text-secondary" @click="store.fetchFleet">
+                <i class="fa-solid fa-rotate me-2"></i> Sync Data
             </button>
-            <!-- NÚT NÀY GỌI openAddModal (MỞ FORM) -->
-            <button class="btn btn-primary shadow-sm" @click="openAddModal">
-                <i class="fa-solid fa-plus me-2"></i> Add Vessel
+            <button class="btn btn-primary shadow fw-bold px-4" @click="openAddModal">
+                <i class="fa-solid fa-plus me-2"></i> Commission Vessel
             </button>
         </div>
     </div>
 
-    <!-- STATS CARDS -->
+    <!-- KPI CARDS: HIỆN ĐẠI HÓA -->
     <div class="row mb-4 g-4">
-        <div class="col-md-3" v-for="stat in store.stats" :key="stat.label">
-            <div class="card h-100 border-0 border-start border-4 shadow-sm" :class="'border-'+stat.color">
+        <!-- Card 1 -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 overflow-hidden position-relative">
                 <div class="card-body">
-                    <div class="stat-card-label mb-2 text-uppercase fw-bold text-secondary" style="font-size: 0.7rem;">{{ stat.label }}</div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="fs-2 fw-bold" :class="'text-'+stat.color">{{ stat.value }}</div>
-                        <div :class="`bg-${stat.color} bg-opacity-10 p-3 rounded-circle`">
-                            <i :class="stat.icon + ' text-'+stat.color + ' fa-lg'"></i>
-                        </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <div class="text-secondary fw-bold small text-uppercase">Total Vessels</div>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill">+2 New</span>
                     </div>
+                    <h2 class="display-5 fw-bold text-dark mb-0">{{ store.stats[0].value }}</h2>
+                    <small class="text-secondary">Active in fleet</small>
+                </div>
+                <!-- Trang trí nền -->
+                <i class="fa-solid fa-ship position-absolute bottom-0 end-0 text-primary opacity-10" style="font-size: 5rem; margin: -10px;"></i>
+            </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 position-relative">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div class="text-secondary fw-bold small text-uppercase">Network Health</div>
+                        <i class="fa-solid fa-heart-pulse text-success"></i>
+                    </div>
+                    <h2 class="display-5 fw-bold text-success mb-0">{{ store.stats[1].value }}</h2>
+                    <div class="progress mt-2" style="height: 4px;">
+                        <div class="progress-bar bg-success" style="width: 95%"></div>
+                    </div>
+                    <small class="text-secondary mt-1 d-block">SLA Met</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3 & 4 (Gộp chung logic render cho gọn, nhưng style riêng) -->
+        <div class="col-md-3" v-for="(stat, idx) in store.stats.slice(2)" :key="idx">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div class="text-secondary fw-bold small text-uppercase">{{ stat.label }}</div>
+                        <i :class="stat.icon + ' text-' + stat.color"></i>
+                    </div>
+                    <h2 class="display-5 fw-bold mb-0" :class="'text-' + stat.color">{{ stat.value }}</h2>
+                    <small class="text-muted">Requires attention</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- DANH SÁCH TÀU -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header d-flex justify-content-between align-items-center bg-white py-3">
-            <h6 class="m-0 fw-bold text-dark"><i class="fa-solid fa-list-ul me-2 text-secondary"></i> Live Fleet Status</h6>
-            <div class="input-group w-25">
-                <span class="input-group-text bg-white"><i class="fa-solid fa-search text-secondary"></i></span>
-                <input type="text" class="form-control" v-model="store.filterText" placeholder="Search IMO, Name...">
+    <!-- MAIN TABLE: CHUYÊN NGHIỆP -->
+    <div class="card border-0 shadow-sm">
+        <!-- Toolbar -->
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
+            <div class="d-flex align-items-center gap-2">
+                <h5 class="fw-bold m-0">Vessel Monitoring</h5>
+                <span class="badge bg-light text-secondary border">{{ store.ships.length }} Units</span>
+            </div>
+            <div class="input-group" style="width: 300px;">
+                <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-search text-secondary"></i></span>
+                <input type="text" class="form-control bg-light border-start-0 ps-0" v-model="store.filterText" placeholder="Search by ID, Name or IP...">
             </div>
         </div>
+
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
+            <table class="table table-hover align-middle mb-0 custom-table">
+                <thead class="bg-light text-uppercase">
                     <tr>
-                        <th class="ps-4 text-secondary text-uppercase small">IMO / ID</th>
-                        <th class="text-secondary text-uppercase small">Vessel & Satellite</th>
-                        <th class="text-secondary text-uppercase small">Owner</th>
-                        <th class="text-secondary text-uppercase small">Mgmt IP</th>
-                        <th class="text-secondary text-uppercase small">Status</th>
-                        <th class="text-end pe-4 text-secondary text-uppercase small">Action</th>
+                        <th class="ps-4 text-secondary small fw-bold" style="width: 250px;">Vessel Info</th>
+                        <th class="text-secondary small fw-bold">Telemetry / Position</th>
+                        <th class="text-secondary small fw-bold">Network Link</th>
+                        <th class="text-secondary small fw-bold">Signal Quality (SNR)</th>
+                        <th class="text-end pe-4 text-secondary small fw-bold">Controls</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="ship in store.filteredShips" :key="ship.id">
-                        <td class="ps-4 font-monospace text-secondary small">{{ ship.id }}</td>
-                        <td>
-                            <div class="fw-bold text-dark">{{ ship.name }}</div>
-                            <div class="small text-muted" style="font-size: 0.75rem;">
-                                <i class="fa-solid fa-satellite-dish me-1 text-primary"></i>{{ ship.satellite }} 
+                        <!-- CỘT 1: THÔNG TIN TÀU (Có Icon) -->
+                        <td class="ps-4 py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-icon bg-light text-primary rounded p-3 me-3">
+                                    <i :class="getShipIcon(ship.type) + ' fa-lg'"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ ship.name }}</div>
+                                    <div class="small text-muted font-monospace">{{ ship.id }}</div>
+                                    <div class="badge bg-light text-secondary border mt-1" style="font-size: 0.65rem;">{{ ship.type }}</div>
+                                </div>
                             </div>
                         </td>
-                        <td><span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">{{ ship.company }}</span></td>
-                        <td class="font-monospace text-primary small">{{ ship.ip }}</td>
+
+                        <!-- CỘT 2: TỌA ĐỘ (Font Monospace) -->
                         <td>
-                            <span class="badge bg-opacity-10 border border-opacity-25" :class="statusClass(ship.status)">
-                                <i class="fa-solid fa-circle fa-2xs me-1"></i>{{ ship.status }}
-                            </span>
-                            <!-- Đã thêm toFixed(1) để làm tròn số -->
-                            <div v-if="ship.status !== 'Offline'" class="small text-secondary mt-1" style="font-size: 0.7rem;">
-                                SNR: <strong>{{ Number(ship.snr).toFixed(1) }} dB</strong>
+                            <div class="d-flex flex-column">
+                                <span class="font-monospace text-dark small mb-1">
+                                    <i class="fa-solid fa-location-crosshairs text-secondary me-2"></i>
+                                    {{ formatCoord(ship.lat, ship.lon) }}
+                                </span>
+                                <span class="small text-muted">
+                                    <i class="fa-regular fa-clock me-2"></i>Updated just now
+                                </span>
                             </div>
                         </td>
+
+                        <!-- CỘT 3: TRẠNG THÁI MẠNG -->
+                        <td>
+                            <div class="mb-1">
+                                <span class="badge border" :class="statusClass(ship.status)">
+                                    <i class="fa-solid fa-circle fa-2xs me-1"></i> {{ ship.status }}
+                                </span>
+                            </div>
+                            <div class="small font-monospace text-secondary">
+                                IP: {{ ship.ip }}
+                            </div>
+                        </td>
+
+                        <!-- CỘT 4: THANH SÓNG (Visual Bar) -->
+                        <td style="width: 200px;">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <span class="fw-bold small text-dark">{{ Number(ship.snr).toFixed(1) }} dB</span>
+                                <i class="fa-solid fa-signal small" :class="ship.snr > 10 ? 'text-success' : 'text-warning'"></i>
+                            </div>
+                            <!-- Thanh Progress -->
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar" 
+                                    :class="getSignalColor(ship.snr)" 
+                                    role="progressbar" 
+                                    :style="{ width: getSignalPercent(ship.snr) + '%' }">
+                                </div>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.7rem;">Beam: {{ ship.beam }}</small>
+                        </td>
+
+                        <!-- CỘT 5: ACTION BUTTONS -->
                         <td class="text-end pe-4">
-                            <button class="btn btn-sm btn-outline-primary" @click="$router.push('/ship/' + ship.id)">
-                                <i class="fa-solid fa-chart-line me-1"></i>Monitor
+                            <button class="btn btn-sm btn-outline-dark fw-bold" @click="$router.push('/ship/' + ship.id)">
+                                Monitor <i class="fa-solid fa-arrow-right ms-1"></i>
                             </button>
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
+        <!-- Footer Bảng -->
+        <div class="card-footer bg-white border-top-0 py-3">
+            <small class="text-secondary">Showing {{ store.filteredShips.length }} vessels. Synchronized with Satellite Control Center.</small>
+        </div>
     </div>
 
-    <!-- MODAL FORM NHẬP LIỆU -->
+    <!-- MODAL GIỮ NGUYÊN (Chỉ chỉnh lại style nút) -->
     <div class="modal fade" id="addVesselModal" tabindex="-1" ref="modalRef">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Commission New Vessel</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-satellite me-2"></i>Commission New Vessel</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body bg-light">
                     <form @submit.prevent="saveShip">
-                        <div class="mb-3">
-                            <label class="form-label small text-secondary fw-bold">IMO Number</label>
-                            <input v-model="form.id" class="form-control" placeholder="e.g. IMO999888" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small text-secondary fw-bold">Vessel Name</label>
-                            <input v-model="form.name" class="form-control" placeholder="e.g. PACIFIC STAR" required>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <label class="form-label small text-secondary fw-bold">Company</label>
-                                <select v-model="form.company" class="form-select">
-                                    <option>VIMC Lines</option>
-                                    <option>Bien Dong POC</option>
-                                    <option>Maersk</option>
-                                    <option>New Client</option>
-                                </select>
+                        <div class="card p-3 border-0 shadow-sm mb-3">
+                            <h6 class="fw-bold text-primary mb-3">Identification</h6>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">IMO Number</label>
+                                <input v-model="form.id" class="form-control" placeholder="e.g. IMO999888">
                             </div>
-                            <div class="col-6">
-                                <label class="form-label small text-secondary fw-bold">Type</label>
-                                <select v-model="form.type" class="form-select">
-                                    <option>Container</option>
-                                    <option>Bulk Carrier</option>
-                                    <option>Tanker</option>
-                                    <option>Tug</option>
-                                </select>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Vessel Name</label>
+                                <input v-model="form.name" class="form-control" placeholder="e.g. PACIFIC STAR">
                             </div>
-                        </div>
-                        <div class="row mb-3">
-                             <div class="col"><label class="form-label small text-secondary">Latitude</label><input v-model.number="form.lat" type="number" step="any" class="form-control"></div>
-                             <div class="col"><label class="form-label small text-secondary">Longitude</label><input v-model.number="form.lon" type="number" step="any" class="form-control"></div>
                         </div>
                         
-                        <div class="text-end border-top pt-3 mt-4">
-                            <button type="button" class="btn btn-light me-2" data-bs-dismiss="modal">Cancel</button>
-                            <!-- NÚT NÀY GỌI saveShip (LƯU) -->
-                            <button type="button" @click="saveShip" class="btn btn-primary px-4 fw-bold">Add Vessel</button>
+                        <div class="row g-2">
+                             <div class="col-6"><input v-model.number="form.lat" type="number" step="any" class="form-control" placeholder="Lat"></div>
+                             <div class="col-6"><input v-model.number="form.lon" type="number" step="any" class="form-control" placeholder="Lon"></div>
+                        </div>
+                        
+                        <div class="text-end mt-4">
+                            <button type="button" class="btn btn-link text-secondary text-decoration-none me-2" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" @click="saveShip" class="btn btn-primary fw-bold px-4">Commission Vessel</button>
                         </div>
                     </form>
                 </div>
@@ -215,3 +293,48 @@ const statusClass = (status) => {
 
   </div>
 </template>
+
+<style scoped>
+/* FONT CHỮ SỐ KỸ THUẬT */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+.font-monospace {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* TABLE STYLING */
+.custom-table thead th {
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    background-color: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.custom-table tbody tr {
+    transition: all 0.2s;
+}
+.custom-table tbody tr:hover {
+    background-color: #f1f5f9;
+    transform: translateY(-1px); /* Nổi nhẹ lên */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    z-index: 1;
+    position: relative;
+}
+
+/* AVATAR ICON */
+.avatar-icon {
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    background-color: #e0f2fe;
+}
+
+/* BACKGROUND SUBTLE BADGES */
+.bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; }
+.bg-warning-subtle { background-color: #fef9c3 !important; color: #854d0e !important; }
+.bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; }
+
+/* SPACING */
+.tracking-wide { letter-spacing: 0.1em; }
+</style>

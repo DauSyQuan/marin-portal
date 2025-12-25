@@ -24,6 +24,7 @@ const (
 	DB_PASSWORD = "123"           // <--- Mật khẩu DB của bạn
 	DB_NAME     = "marine_portal" // <--- Tên Database
 	JWT_KEY     = "bi_mat_khong_the_bat_mi"
+	MASTER_KEY  = "marine_admin" // <--- Mã bí mật để reset pass
 )
 
 var db *sql.DB
@@ -85,7 +86,7 @@ func main() {
 	r.HandleFunc("/api/ships", getShips).Methods("GET")
 	r.HandleFunc("/api/ships", createShip).Methods("POST") // API Thêm tàu
 	r.HandleFunc("/api/report/{id}", downloadReport).Methods("GET")
-
+	r.HandleFunc("/api/reset-password", resetPassword).Methods("POST")
 	// D. Cấu hình CORS (Cho phép Frontend gọi vào)
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://127.0.0.1:5173"},
@@ -130,7 +131,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		"role":     storedUser.Role,
 	})
 }
-
+	
 // API: Lấy danh sách tàu
 func getShips(w http.ResponseWriter, r *http.Request) {
 	// Sắp xếp theo thời gian cập nhật mới nhất
@@ -218,7 +219,48 @@ func downloadReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=Report-%s.pdf", s.ID))
 	pdf.Output(w)
 }
+	// Struct nhận dữ liệu reset
+type ResetRequest struct {
+	Username    string `json:"username"`
+	NewPassword string `json:"new_password"`
+	SecretKey   string `json:"secret_key"`
+}
 
+// API: Reset mật khẩu
+func resetPassword(w http.ResponseWriter, r *http.Request) {
+	var req ResetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Dữ liệu không hợp lệ", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Kiểm tra Mã bí mật (Master Key)
+	if req.SecretKey != MASTER_KEY {
+		http.Error(w, "Mã bảo mật hệ thống không đúng!", http.StatusForbidden)
+		return
+	}
+
+	// 2. Kiểm tra User có tồn tại không
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username=$1)", req.Username).Scan(&exists)
+	if err != nil || !exists {
+		http.Error(w, "Username không tồn tại!", http.StatusNotFound)
+		return
+	}
+
+	// 3. Mã hóa mật khẩu mới
+	hashedPass, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 14)
+
+	// 4. Cập nhật vào DB
+	_, err = db.Exec("UPDATE users SET password=$1 WHERE username=$2", string(hashedPass), req.Username)
+	if err != nil {
+		http.Error(w, "Lỗi Database", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Đổi mật khẩu thành công!"})
+}
 // --- 5. CÁC HÀM PHỤ TRỢ ---
 
 // Simulator: Tự động đổi SNR (đã làm tròn 1 số thập phân)

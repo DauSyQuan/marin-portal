@@ -1,0 +1,37 @@
+# =========================
+# ROOT ignore (frontend+backend)
+# =========================
+
+# Node / Vite (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Frontend env (không upload)
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Backend env (không upload)
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Go build outputs (backend)
+backend/*.exe
+backend/*.out
+backend/*.test
+backend/bin/
+backend/*.log
+
+# Go cache if any
+backend/pkg/

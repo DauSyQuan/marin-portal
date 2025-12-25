@@ -47,6 +47,10 @@ const auth = useAuthStore();
         <i class="fa-solid fa-ticket me-2"></i>
         <span>Vouchers</span>
       </router-link>
+      <router-link to="/bandwidth" class="nav-link" active-class="active">
+        <i class="fa-solid fa-bolt me-2"></i> <!-- Icon tia sét -->
+        <span>Bandwidth Plans</span>
+      </router-link>
 
       <router-link to="/settings" class="nav-link" active-class="active">
         <i class="fa-solid fa-gear"></i>

@@ -10,6 +10,7 @@ import SettingsView from '../stores/views/SettingsView.vue'
 import UsageView from '../views/UsageView.vue' // <--- MỚI: Báo cáo lưu lượng
 import OnlineUsersView from '../views/OnlineUsersView.vue' // <--- Import
 import VoucherView from '../views/VoucherView.vue'
+import BandwidthView from '../views/BandwidthView.vue' // <--- Import
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -58,6 +59,12 @@ const router = createRouter({
     path: '/vouchers', 
     name: 'vouchers', 
     component: VoucherView, 
+    meta: { requiresAuth: true } 
+},
+{ 
+    path: '/bandwidth', 
+    name: 'bandwidth', 
+    component: BandwidthView, 
     meta: { requiresAuth: true } 
 },
   ]

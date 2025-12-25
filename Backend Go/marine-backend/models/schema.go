@@ -63,3 +63,21 @@ type Voucher struct {
 	CreatedAt time.Time `json:"created_at"`
 	ValidDays int       `json:"valid_days"` // Hạn sử dụng (ngày)
 }
+type BandwidthPlan struct {
+	ID            uint      `json:"id" gorm:"primaryKey"`
+	Name          string    `json:"name"`
+	
+	// Lưu tốc độ dưới dạng Kbps để dễ tính toán
+	UploadSpeed   int       `json:"upload_speed"`   
+	DownloadSpeed int       `json:"download_speed"`
+	
+	// Các thông số Burst (Optional)
+	BurstLimit    string    `json:"burst_limit"`
+	BurstThreshold string   `json:"burst_threshold"`
+	BurstTime     string    `json:"burst_time"`
+	Priority      int       `json:"priority"`
+	LimitAt       string    `json:"limit_at"`
+	
+	Status        string    `json:"status"` // Active/Inactive
+	CreatedAt     time.Time `json:"created_at"`
+}

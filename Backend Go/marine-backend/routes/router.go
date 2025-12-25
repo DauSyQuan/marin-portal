@@ -40,6 +40,9 @@ func SetupRouter() *gin.Engine {
 		api.GET("/vouchers", controllers.GetVouchers)
 		api.POST("/vouchers", controllers.CreateVoucher)
 		api.PUT("/vouchers/:id/assign", controllers.AssignVoucher) // API Gán
+		api.GET("/bandwidth-plans", controllers.GetBandwidthPlans)
+		api.POST("/bandwidth-plans", controllers.CreateBandwidthPlan)
+		api.DELETE("/bandwidth-plans/:id", controllers.DeleteBandwidthPlan)
 	}
 
 	return r

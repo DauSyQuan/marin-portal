@@ -1,22 +1,19 @@
 import { defineStore } from 'pinia'
-import axios from 'axios' // Bắt buộc phải import axios
+import axios from 'axios'
 
 export const useFleetStore = defineStore('fleet', {
     state: () => ({
-        ships: [],       // Danh sách tàu
-        loading: false,  // Trạng thái tải
-        filterText: ''   // Ô tìm kiếm
+        ships: [],
+        loading: false,
+        filterText: ''
     }),
     
     getters: {
-        // 1. Tính toán thống kê KPI cho Dashboard
         stats(state) {
             const total = state.ships.length;
             const online = state.ships.filter(s => s.status === 'Online').length;
             const offline = state.ships.filter(s => s.status === 'Offline').length;
             const warning = state.ships.filter(s => s.status === 'Warning' || s.status === 'Blockage').length;
-            
-            // Công thức tính điểm sức khỏe hệ thống (Health Score)
             const health = total > 0 ? ((online + (warning * 0.5)) / total * 100).toFixed(1) : 0;
 
             return [
@@ -27,7 +24,6 @@ export const useFleetStore = defineStore('fleet', {
             ];
         },
         
-        // 2. Logic lọc danh sách tàu (Search)
         filteredShips(state) {
             if (!state.filterText) return state.ships;
             const term = state.filterText.toLowerCase();
@@ -40,63 +36,76 @@ export const useFleetStore = defineStore('fleet', {
     },
 
     actions: {
-        // --- CÁC HÀM QUẢN LÝ TÀU (SHIP) ---
-
-        // Lấy danh sách tàu từ Backend Go
+        // --- QUẢN LÝ TÀU ---
         async fetchFleet() {
             this.loading = true;
             try {
                 const response = await axios.get('http://localhost:8080/api/ships');
-                // Nếu backend trả về null (do chưa có tàu nào), gán mảng rỗng []
                 this.ships = response.data || [];
             } catch (error) {
-                console.error("Lỗi tải dữ liệu tàu:", error);
-                // Không alert ở đây để tránh spam popup khi mới vào trang
+                console.error("Lỗi tải tàu:", error);
             } finally {
                 this.loading = false;
             }
         },
 
-        // Thêm tàu mới
         async addShip(newShipData) {
             try {
                 const response = await axios.post('http://localhost:8080/api/ships', newShipData);
                 if (response.data) {
-                    // Thêm vào đầu danh sách (unshift) để hiện ra ngay lập tức
                     this.ships.unshift(response.data);
-                    return true; // Trả về true để báo component đóng Modal
+                    return true;
                 }
                 return false;
             } catch (error) {
-                console.error("Lỗi thêm tàu:", error);
-                // Hiển thị lỗi chi tiết từ Backend trả về
-                const msg = error.response?.data?.error || error.message || "Lỗi kết nối Server!";
-                alert("Không thể thêm tàu: " + msg);
+                alert("Lỗi thêm tàu: " + (error.response?.data?.error || error.message));
                 return false;
             }
         },
 
-        // --- CÁC HÀM QUẢN LÝ THỦY THỦ (CREW) ---
+        // --- QUẢN LÝ THỦY THỦ (CREW / ICT USER) ---
 
-        // Lấy danh sách thủy thủ theo ID tàu
+        // 1. Lấy danh sách
         async fetchCrew(shipId) {
             try {
                 const response = await axios.get(`http://localhost:8080/api/ships/${shipId}/crew`);
                 return response.data || [];
             } catch (error) {
-                console.error("Lỗi tải danh sách thủy thủ:", error);
+                console.error("Lỗi tải Crew:", error);
                 return [];
             }
         },
 
-        // Thêm thủy thủ mới
+        // 2. Thêm mới
         async addCrew(crewData) {
             try {
                 await axios.post('http://localhost:8080/api/crew', crewData);
                 return true;
             } catch (error) {
-                console.error("Lỗi thêm thủy thủ:", error);
-                alert("Không thể thêm thành viên: " + (error.response?.data?.error || error.message));
+                alert("Lỗi thêm: " + (error.response?.data?.error || error.message));
+                return false;
+            }
+        },
+
+        // 3. Cập nhật (Sửa)
+        async updateCrew(id, updatedData) {
+            try {
+                await axios.put(`http://localhost:8080/api/crew/${id}`, updatedData);
+                return true;
+            } catch (error) {
+                alert("Lỗi cập nhật: " + (error.response?.data?.error || error.message));
+                return false;
+            }
+        },
+
+        // 4. Xóa
+        async deleteCrew(id) {
+            try {
+                if(!confirm("Bạn có chắc chắn muốn xóa User này không?")) return false;
+                await axios.delete(`http://localhost:8080/api/crew/${id}`);
+                return true;
+            } catch (error) {
+                alert("Lỗi xóa: " + (error.response?.data?.error || error.message));
                 return false;
             }
         }

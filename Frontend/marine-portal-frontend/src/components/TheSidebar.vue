@@ -1,224 +1,160 @@
 <script setup>
-import { useAuthStore } from "@/stores/auth";
-import { useRouter } from "vue-router";
-
+import { useAuthStore } from '@/stores/auth';
 const auth = useAuthStore();
-const router = useRouter();
-
-const handleLogout = () => {
-  auth.logout();
-  router.push("/login");
-};
 </script>
 
 <template>
-  <aside class="sidebar">
-    <!-- Brand -->
-    <div class="brand">
-      <div class="brand-icon">
-        <i class="fa-solid fa-satellite"></i>
-      </div>
-      <div class="brand-text">
-        <div class="brand-title">MARINE PRO</div>
-        <div class="brand-sub">Fleet Operations</div>
+  <div class="sidebar">
+    <!-- 1. LOGO BRAND -->
+    <div class="sidebar-brand">
+      <div class="d-flex align-items-center">
+        <div class="logo-icon me-3">
+          <i class="fa-solid fa-anchor"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold m-0 text-white tracking-wide">MARINE PRO</h5>
+          <small class="text-white-50" style="font-size: 0.65rem;">FLEET OPERATIONS</small>
+        </div>
       </div>
     </div>
-
-    <!-- Menu -->
-    <nav class="menu">
-      <router-link to="/" class="menu-item" active-class="active">
+    
+    <!-- 2. NAVIGATION MENU -->
+    <nav class="mt-4 flex-grow-1 px-3">
+      <div class="menu-label">Main Menu</div>
+      
+      <router-link to="/" class="nav-link" active-class="active">
         <i class="fa-solid fa-ship"></i>
         <span>Fleet Overview</span>
       </router-link>
-
-      <router-link to="/analytics" class="menu-item" active-class="active">
+      
+      <router-link to="/analytics" class="nav-link" active-class="active">
         <i class="fa-solid fa-chart-pie"></i>
         <span>Analytics Report</span>
       </router-link>
 
-      <router-link to="/settings" class="menu-item" active-class="active">
+      <div class="menu-label mt-4">Management</div>
+
+      <router-link to="/usage" class="nav-link" active-class="active">
+        <i class="fa-solid fa-file-invoice"></i>
+        <span>User Monthly Usage</span>
+      </router-link>
+
+      <router-link to="/settings" class="nav-link" active-class="active">
         <i class="fa-solid fa-gear"></i>
         <span>System Config</span>
       </router-link>
     </nav>
 
-    <!-- Footer -->
+    <!-- 3. USER PROFILE FOOTER -->
     <div class="sidebar-footer">
-      <div class="user-box">
-        <div class="avatar">A</div>
-        <div class="user-meta">
-          <div class="user-name">Admin User</div>
-          <div class="user-role">Fleet Manager</div>
+      <div class="user-card d-flex align-items-center mb-3">
+        <div class="avatar me-3">
+          {{ auth.user?.username.charAt(0).toUpperCase() || 'A' }}
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+          <div class="text-white fw-bold text-truncate" style="font-size: 0.9rem;">
+            {{ auth.user?.username || 'Admin' }}
+          </div>
+          <div class="text-success small" style="font-size: 0.75rem;">
+            <i class="fa-solid fa-circle fa-2xs me-1"></i>Online
+          </div>
         </div>
       </div>
-
-      <button class="logout-btn" @click="handleLogout">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        <span>Sign Out</span>
+      <button @click="auth.logout()" class="btn btn-danger w-100 btn-sm fw-bold shadow-sm">
+        <i class="fa-solid fa-right-from-bracket me-2"></i> Sign Out
       </button>
     </div>
-  </aside>
+  </div>
 </template>
 
 <style scoped>
-/* ✅ Sidebar MUST be fully styled here to avoid global override */
-.sidebar {
-  width: 260px;
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 1000;
-
-  display: flex;
-  flex-direction: column;
-
-  /* ✅ solid dark background */
-  background: #0f172a !important;
-  color: #ffffff !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+/* --- CẤU TRÚC CHÍNH (MÀU NỀN ĐẬM) --- */
+.sidebar { 
+    width: 260px; 
+    background-color: #0f172a; /* Màu Xanh Than Đậm (Dark Navy) - Rất quan trọng */
+    height: 100vh; 
+    position: fixed; 
+    z-index: 1000; 
+    display: flex; 
+    flex-direction: column; 
+    border-right: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4); /* Bóng đổ đậm hơn */
 }
 
-/* Brand */
-.brand {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 18px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+/* --- LOGO --- */
+.sidebar-brand { 
+    padding: 24px; 
+    background: rgba(0,0,0,0.2); /* Nền tối hơn chút cho logo */
+    border-bottom: 1px solid rgba(255,255,255,0.1); 
+}
+.logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.tracking-wide { letter-spacing: 1px; }
+
+/* --- MENU LINKS --- */
+.menu-label {
+    color: #475569;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-left: 12px;
+    letter-spacing: 0.5px;
 }
 
-.brand-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: rgba(59, 130, 246, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #3b82f6;
-  font-size: 18px;
+.nav-link { 
+    color: #94a3b8; /* Màu chữ xám sáng (dễ đọc trên nền đen) */
+    padding: 12px 16px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: flex; align-items: center;
+    margin-bottom: 4px;
 }
 
-.brand-title {
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  font-size: 0.95rem;
+.nav-link i { 
+    width: 24px; 
+    margin-right: 12px; 
+    text-align: center; 
+    font-size: 1.1rem;
 }
 
-.brand-sub {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.55);
-  margin-top: 2px;
+/* Hiệu ứng Hover & Active */
+.nav-link:hover { 
+    color: white; 
+    background: rgba(255,255,255,0.08); 
+    transform: translateX(4px);
 }
 
-/* Menu */
-.menu {
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
+.nav-link.active { 
+    color: white; 
+    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); /* Gradient xanh nổi bật */
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); /* Bóng đổ phát sáng */
+    font-weight: 600;
 }
 
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  padding: 12px 14px;
-  border-radius: 12px;
-
-  color: rgba(255, 255, 255, 0.78) !important;
-  text-decoration: none !important;
-  font-weight: 700;
-
-  transition: all 0.18s ease;
-}
-
-.menu-item i {
-  width: 18px;
-  text-align: center;
-  opacity: 0.95;
-}
-
-.menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff !important;
-}
-
-.menu-item.active {
-  background: rgba(59, 130, 246, 0.14);
-  color: #ffffff !important;
-  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25);
-}
-
-/* Footer */
+/* --- FOOTER USER --- */
 .sidebar-footer {
-  padding: 16px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
-
-.user-box {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
 .avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.18);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-}
-
-.user-name {
-  font-weight: 900;
-  font-size: 0.9rem;
-  color: #ffffff;
-}
-
-.user-role {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.55);
-  margin-top: 2px;
-}
-
-/* Logout */
-.logout-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  border: 0;
-  background: transparent;
-  color: #f87171;
-
-  padding: 12px 12px;
-  border-radius: 12px;
-
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.logout-btn:hover {
-  background: rgba(248, 113, 113, 0.12);
-}
-
-/* Responsive: nếu bạn muốn sidebar ẩn trên mobile sau này */
-@media (max-width: 992px) {
-  .sidebar {
-    position: relative;
-    width: 100%;
-    height: auto;
-  }
+    width: 40px; height: 40px;
+    background-color: #3b82f6;
+    color: white;
+    font-weight: bold;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
 }
 </style>

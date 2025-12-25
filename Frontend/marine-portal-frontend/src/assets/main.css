@@ -26,3 +26,46 @@ body {
   padding: 0;
   text-align: left;
 }
+/* 1. Thẻ Card (Hộp thông tin) */
+.card {
+    border-radius: 20px !important; /* Bo tròn mềm mại */
+    border: 1px solid rgba(0,0,0,0.04) !important; /* Viền siêu mỏng */
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; /* Bóng mờ tinh tế */
+}
+
+/* 2. Nút bấm (Buttons) */
+.btn {
+    border-radius: 12px !important; /* Bo tròn vừa phải */
+    padding: 10px 20px !important; /* Nút to hơn chút cho sang */
+    font-weight: 600 !important;
+}
+
+/* Nút nhỏ */
+.btn-sm {
+    border-radius: 8px !important;
+    padding: 6px 12px !important;
+}
+
+/* 3. Ô nhập liệu (Input) */
+.form-control, .form-select {
+    border-radius: 12px !important;
+    padding: 10px 15px !important;
+    border: 1px solid #e2e8f0 !important;
+}
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important; /* Highlight mềm */
+}
+
+/* 4. Badges (Nhãn trạng thái) */
+.badge {
+    border-radius: 8px !important;
+    padding: 6px 10px !important;
+    font-weight: 600 !important;
+}
+
+/* 5. Modal (Hộp thoại) */
+.modal-content {
+    border-radius: 24px !important;
+    border: none !important;
+    overflow: hidden;
+}

@@ -33,6 +33,8 @@ func SetupRouter() *gin.Engine {
     	api.DELETE("/crew/:id", controllers.DeleteCrew)            // Xóa crew
 		// PDF Report (Bạn có thể copy logic PDF vào controller riêng sau)
 		api.GET("/report/:id", controllers.DownloadReport) 
+		api.PUT("/crew/:id", controllers.UpdateCrew)
+		api.GET("/usage-report", controllers.GetMonthlyUsage)
 	}
 
 	return r

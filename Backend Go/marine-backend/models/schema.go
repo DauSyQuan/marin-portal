@@ -15,25 +15,29 @@ type Ship struct {
 	Lon       float64   `json:"lon"`
 	SNR       float64   `json:"snr"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Crews     []Crew    `json:"crews" gorm:"foreignKey:ShipID"` 
+	Crews     []Crew    `json:"crews" gorm:"foreignKey:ShipID"`
 }
+
 type Crew struct {
-    ID          uint   `json:"id" gorm:"primaryKey"`
-    ShipID      string `json:"ship_id"` // Khóa ngoại trỏ về tàu
-    FullName    string `json:"full_name"`
-    Rank        string `json:"rank"`        // Chức danh: Captain, Chief Engineer...
-    Nationality string `json:"nationality"`
-    Status      string `json:"status"`      // Onboard, On Leave
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	ShipID      string    `json:"ship_id"`
+	FullName    string    `json:"full_name"`
+	Rank        string    `json:"rank"`
+	Nationality string    `json:"nationality"`
+	Username    string    `json:"username"`
+	DataPlan    string    `json:"data_plan"`
+	DataUsage   float64   `json:"data_usage"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type User struct {
 	Username string `json:"username" gorm:"primaryKey"`
-	Password string `json:"-"` // Không trả password về JSON
+	Password string `json:"-"`
 	FullName string `json:"full_name"`
 	Role     string `json:"role"`
 }
 
-// Struct nhận dữ liệu Login
 type LoginInput struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`

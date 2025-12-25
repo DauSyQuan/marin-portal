@@ -17,55 +17,56 @@ const router = createRouter({
     { 
       path: '/login', 
       name: 'login', 
-      component: LoginView 
+      component: LoginView,
+      meta: { title: 'Secure Login' } 
     },
     { 
       path: '/', 
       name: 'dashboard', 
       component: DashboardView, 
-      meta: { requiresAuth: true } 
+      meta: { requiresAuth: true, title: 'Fleet Overview' } 
     },
     { 
       path: '/ship/:id', 
       name: 'ship-detail', 
       component: ShipDetailView, 
-      meta: { requiresAuth: true } 
+      meta: { requiresAuth: true, title: 'Vessel Monitor' } 
     },
     { 
       path: '/analytics', 
       name: 'analytics', 
       component: AnalyticsView, 
-      meta: { requiresAuth: true } 
+      meta: { requiresAuth: true, title: 'Analytics Report' } 
     },
     { 
       path: '/usage', 
       name: 'usage', 
       component: UsageView, 
-      meta: { requiresAuth: true } // <--- Route mới cho trang Usage
+      meta: { requiresAuth: true, title: 'User Usage' } // <--- Route mới cho trang Usage
     },
     { 
       path: '/settings', 
       name: 'settings', 
       component: SettingsView, 
-      meta: { requiresAuth: true } 
+      meta: { requiresAuth: true, title: 'System Config' }  
     },
     { 
     path: '/online-users', 
     name: 'online-users', 
     component: OnlineUsersView, 
-    meta: { requiresAuth: true } 
+     meta: { requiresAuth: true, title: 'Online Session' } 
 },
 { 
     path: '/vouchers', 
     name: 'vouchers', 
     component: VoucherView, 
-    meta: { requiresAuth: true } 
+    meta: { requiresAuth: true, title: 'Voucher Management' } 
 },
 { 
     path: '/bandwidth', 
     name: 'bandwidth', 
     component: BandwidthView, 
-    meta: { requiresAuth: true } 
+     meta: { requiresAuth: true, title: 'Bandwidth Plans' } 
 },
   ]
 })
@@ -88,5 +89,12 @@ router.beforeEach((to, from, next) => {
 
   next();
 });
-
+router.afterEach((to) => {
+  const defaultTitle = 'Marine Pro'; // Tên thương hiệu gốc
+  if (to.meta.title) {
+    document.title = `${to.meta.title} | ${defaultTitle}`;
+  } else {
+    document.title = defaultTitle;
+  }
+});
 export default router

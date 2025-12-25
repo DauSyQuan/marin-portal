@@ -20,7 +20,7 @@ const route = useRoute()
         <!-- 3. HIỆU ỨNG NỘI DUNG (Phóng to & Mờ dần) -->
         <router-view v-slot="{ Component }">
           <transition name="book-reveal" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
 

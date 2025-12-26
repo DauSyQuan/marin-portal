@@ -1,71 +1,167 @@
-html, body, #app {
-  height: 100%;
+/* --- 1. IMPORT FONTS --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(30, 41, 59, 0.4); /* Nền đen xanh trong suốt */
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* --- 2. HÌNH NỀN TOÀN CỤC (LIQUID BACKGROUND) --- */
 body {
-  margin: 0;
-  background: var(--bg-body);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-}
-html, body {
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  display: block;
-  min-height: 100%;
-  background: #f8f9fa; /* hoặc theo theme */
+    font-family: 'Inter', sans-serif;
+    color: #e2e8f0; /* Mặc định chữ màu trắng sáng */
+    background-color: #0f172a; /* Màu dự phòng */
+    
+    /* Hình nền biển */
+    background-image: url('https://c0.wallpaperflare.com/preview/888/665/86/background-blue-calm-gradients.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed; /* Cố định khi cuộn */
+    overflow-x: hidden;
 }
 
-#app {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-  padding: 0;
-  text-align: left;
-}
-/* 1. Thẻ Card (Hộp thông tin) */
-.card {
-    border-radius: 20px !important; /* Bo tròn mềm mại */
-    border: 1px solid rgba(0,0,0,0.04) !important; /* Viền siêu mỏng */
-    box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; /* Bóng mờ tinh tế */
+/* Lớp phủ tối (Overlay) để làm chữ nổi bật hơn */
+body::before {
+    content: '';
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.75); /* Phủ tối 75% */
+    z-index: -1;
+    pointer-events: none;
 }
 
-/* 2. Nút bấm (Buttons) */
-.btn {
-    border-radius: 12px !important; /* Bo tròn vừa phải */
-    padding: 10px 20px !important; /* Nút to hơn chút cho sang */
-    font-weight: 600 !important;
+/* --- 3. CẢI THIỆN ĐỘ TƯƠNG PHẢN CHỮ (TEXT FIX) --- */
+
+/* Chuyển các class màu tối của Bootstrap sang màu trắng */
+.text-dark, .fw-bold, h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
 }
 
-/* Nút nhỏ */
-.btn-sm {
-    border-radius: 8px !important;
-    padding: 6px 12px !important;
+/* Chuyển màu xám (Secondary) sang xám bạc sáng */
+.text-secondary {
+    color: #cbd5e1 !important; /* Slate 300 - Rất rõ trên nền đen */
 }
 
-/* 3. Ô nhập liệu (Input) */
+/* Chữ mờ */
+.text-muted {
+    color: #94a3b8 !important; /* Slate 400 */
+}
+
+/* Link */
+a { color: #60a5fa; }
+a:hover { color: #93c5fd; }
+
+/* Font kỹ thuật */
+.font-monospace {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* --- 4. HIỆU ỨNG KÍNH (GLASS COMPONENTS) --- */
+
+/* Card & Panel */
+.glass-panel, .card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px);
+    border: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
+    border-radius: 20px !important;
+}
+
+/* Header & Footer của Card */
+.card-header {
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.card-footer {
+    background-color: transparent !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* --- 5. BẢNG DỮ LIỆU (TABLES) --- */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #f1f5f9;
+    --bs-table-border-color: rgba(255, 255, 255, 0.1);
+}
+
+.table thead th {
+    color: #e2e8f0 !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important; /* Hover sáng lên */
+}
+
+/* --- 6. INPUTS & FORMS (TRONG SUỐT) --- */
 .form-control, .form-select {
-    border-radius: 12px !important;
-    padding: 10px 15px !important;
-    border: 1px solid #e2e8f0 !important;
+    background-color: rgba(0, 0, 0, 0.3) !important; /* Nền đen mờ */
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #fff !important;
+    border-radius: 10px !important;
 }
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
 .form-control:focus, .form-select:focus {
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important; /* Highlight mềm */
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    border-color: #38bdf8 !important; /* Viền xanh sáng */
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2) !important;
 }
 
-/* 4. Badges (Nhãn trạng thái) */
-.badge {
-    border-radius: 8px !important;
-    padding: 6px 10px !important;
-    font-weight: 600 !important;
+.input-group-text {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: white !important;
 }
 
-/* 5. Modal (Hộp thoại) */
+/* --- 7. BUTTONS & BADGES --- */
+.btn-light {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+}
+.btn-light:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Badge nền sáng (ví dụ Warning/Info) cần chỉnh lại nền trong suốt */
+.bg-light, .bg-secondary-subtle {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* --- 8. MODAL (HỘP THOẠI) --- */
 .modal-content {
-    border-radius: 24px !important;
-    border: none !important;
-    overflow: hidden;
+    background: rgba(15, 23, 42, 0.9) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
+
+.modal-header, .modal-footer {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%); /* Đổi nút đóng thành trắng */
+}
+
+/* --- 9. SCROLLBAR --- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+    background: rgba(255, 255, 255, 0.2); 
+    border-radius: 4px; 
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }

@@ -43,6 +43,9 @@ func SetupRouter() *gin.Engine {
 		api.GET("/bandwidth-plans", controllers.GetBandwidthPlans)
 		api.POST("/bandwidth-plans", controllers.CreateBandwidthPlan)
 		api.DELETE("/bandwidth-plans/:id", controllers.DeleteBandwidthPlan)
+		api.GET("/ships/:ship_id/router/stats", controllers.GetRouterHealth)
+		api.POST("/ships/:ship_id/router/sync", controllers.SyncCrewToRouter)
+		api.POST("/ships/:ship_id/router/reboot", controllers.RebootRouter)
 	}
 
 	return r

@@ -1,111 +1,71 @@
 <script setup>
 import TheSidebar from './components/TheSidebar.vue'
 import { useRoute } from 'vue-router'
-
 const route = useRoute()
 </script>
 
 <template>
   <div class="app-layout">
-    
-    <!-- 1. HIỆU ỨNG SIDEBAR (Trượt từ trái vào) -->
-    <transition name="sidebar-slide">
-      <TheSidebar v-if="route.path !== '/login'" />
-    </transition>
+    <!-- Sidebar -->
+    <div v-if="route.path !== '/login'" class="sidebar-wrapper glass-sidebar">
+      <TheSidebar />
+    </div>
 
-    <!-- 2. WRAPPER BAO NGOÀI -->
+    <!-- Nội dung chính -->
     <div class="main-wrapper" :class="{ 'login-mode': route.path === '/login' }">
       <div class="main-content">
-        
-        <!-- 3. HIỆU ỨNG NỘI DUNG (Phóng to & Mờ dần) -->
         <router-view v-slot="{ Component }">
-          <transition name="book-reveal" mode="out-in">
+          <transition name="pure-fade">
             <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
-
       </div>
     </div>
   </div>
 </template>
 
 <style>
-/* --- CẤU TRÚC CƠ BẢN --- */
-body {
-    background-color: #0f172a;
-    margin: 0;
-    overflow-x: hidden; /* Chặn thanh cuộn ngang khi animation chạy */
-}
+/* Layout */
+body { overflow: hidden; }
+.app-layout { display: flex; width: 100vw; height: 100vh; }
 
-.app-layout {
-    display: flex;
-    width: 100%;
-    min-height: 100vh;
+/* Sidebar Kính */
+.sidebar-wrapper {
+    width: 260px; height: 100%; position: fixed; z-index: 20; left: 0; top: 0;
+    /* Hiệu ứng kính cho Sidebar */
+    background: rgba(15, 23, 42, 0.6); 
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255,255,255,0.1);
 }
 
 .main-wrapper {
-    flex-grow: 1;
-    margin-left: 260px;
-    background-color: #0f172a;
-    padding: 12px 12px 12px 0;
-    min-height: 100vh;
-    transition: margin-left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); /* Mượt mà khi Login/Logout */
+    flex-grow: 1; margin-left: 260px;
+    padding: 20px; /* Tăng khoảng cách cho đẹp */
+    height: 100vh;
 }
 
 .main-content {
-    background-color: #f1f5f9;
-    width: 100%;
-    height: 100%;
-    min-height: calc(100vh - 24px);
+    /* KHÔNG DÙNG MÀU NỀN NỮA -> TRONG SUỐT */
+    background-color: transparent; 
+    width: 100%; height: 100%;
+    min-height: calc(100vh - 40px);
     border-radius: 32px;
-    padding: 30px;
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow-y: auto; overflow-x: hidden;
 }
 
-/* Chế độ Login */
-.main-wrapper.login-mode {
-    margin-left: 0;
-    padding: 0;
-}
-.main-wrapper.login-mode .main-content {
-    border-radius: 0;
-    padding: 0;
-}
+.main-wrapper.login-mode { margin-left: 0; padding: 0; }
 
-/* --- A. HIỆU ỨNG SIDEBAR (Trượt như gáy sách) --- */
-.sidebar-slide-enter-active,
-.sidebar-slide-leave-active {
-    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); /* Ease-out Quint */
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
 
-.sidebar-slide-enter-from,
-.sidebar-slide-leave-to {
-    transform: translateX(-100%); /* Trượt hẳn ra ngoài màn hình */
-    opacity: 0;
+/* Animation Fade */
+.pure-fade-enter-active, .pure-fade-leave-active { 
+    transition: opacity 0.5s ease; position: absolute; 
+    top: 0; left: 0; width: 100%; 
 }
-
-/* --- B. HIỆU ỨNG TRANG SÁCH (Content Reveal) --- */
-.book-reveal-enter-active {
-    transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); /* Có độ nảy nhẹ (Bounce) */
-}
-
-.book-reveal-leave-active {
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-/* Trạng thái bắt đầu khi vào trang (Enter) */
-.book-reveal-enter-from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95); /* Tụt xuống dưới và nhỏ lại */
-    filter: blur(10px); /* Hiệu ứng mờ ảo */
-}
-
-/* Trạng thái kết thúc khi rời trang (Leave) */
-.book-reveal-leave-to {
-    opacity: 0;
-    transform: scale(1.05); /* Phóng to nhẹ khi biến mất */
-    filter: blur(5px);
-}
+.pure-fade-enter-from { opacity: 0; z-index: 2; }
+.pure-fade-leave-to { opacity: 0; z-index: 0; }
 </style>

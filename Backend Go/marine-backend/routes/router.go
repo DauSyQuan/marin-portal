@@ -46,6 +46,9 @@ func SetupRouter() *gin.Engine {
 		api.GET("/ships/:ship_id/router/stats", controllers.GetRouterHealth)
 		api.POST("/ships/:ship_id/router/sync", controllers.SyncCrewToRouter)
 		api.POST("/ships/:ship_id/router/reboot", controllers.RebootRouter)
+		api.GET("/settings", controllers.GetSettings)
+		api.PUT("/settings", controllers.UpdateSettings)
+		api.GET("/audit-logs", controllers.GetAuditLogs)
 	}
 
 	return r

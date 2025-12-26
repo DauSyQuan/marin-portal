@@ -29,7 +29,7 @@ func Connect() {
 	}
 
 	// Tự động tạo bảng nếu chưa có (Migration)
-	DB.AutoMigrate(&models.Ship{}, &models.User{}, &models.Crew{}, &models.Voucher{}, &models.BandwidthPlan{})
+	DB.AutoMigrate(&models.Ship{}, &models.User{}, &models.Crew{}, &models.Voucher{}, &models.BandwidthPlan{}, &models.SystemConfig{}, &models.AuditLog{})
 
 	// Cấu hình Connection Pool
 	sqlDB, _ := DB.DB()

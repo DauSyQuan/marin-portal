@@ -1,44 +1,126 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import axios from 'axios';
 
 const activeTab = ref('network');
 const isSaving = ref(false);
+const auditLogs = ref([]);
 
 // --- STATE CẤU HÌNH ---
+// Giữ nguyên các biến bạn đang dùng trong template (networkConfig, alertsConfig, integrations)
+// nhưng bây giờ sẽ map dữ liệu thật từ backend vào.
 const networkConfig = reactive({
-    firewall: true,
-    dpi: true, // Deep Packet Inspection
-    sdwan_mode: 'failover', // load_balance, failover
-    primary_link: 'vsat_ka',
-    secondary_link: '4g_lte',
-    blocked_apps: { youtube: false, facebook: true, tiktok: true, torrent: true }
+  firewall: true,
+  dpi: true, // Deep Packet Inspection (backend chưa có field -> vẫn giữ UI)
+  sdwan_mode: 'failover',
+  primary_link: 'vsat_ka',
+  secondary_link: '4g_lte', // backend chưa có field -> giữ UI
+  blocked_apps: {
+    youtube: false,
+    facebook: true,
+    tiktok: true,
+    torrent: true // backend chưa có field -> giữ UI
+  }
 });
 
 const alertsConfig = reactive({
-    snr_threshold: 5.0,
-    daily_quota_warning: 80,
-    recipients: 'noc@marine-corp.com; fleet.mgr@marine-corp.com',
-    channels: { email: true, sms: false, webhook: true }
+  snr_threshold: 5.0,
+  daily_quota_warning: 80,
+  recipients: 'noc@marine-corp.com; fleet.mgr@marine-corp.com',
+  channels: { email: true, sms: false, webhook: true } // backend chưa có -> giữ UI
 });
 
 const integrations = reactive({
-    starlink_api: 'sk_live_51M...',
-    inmarsat_key: 'inm_882...',
-    weather_api: 'active'
+  starlink_api: '',
+  inmarsat_key: '', // backend chưa có -> giữ UI
+  weather_api: true
 });
 
-// Mock Data cho Audit Logs
-const auditLogs = [
-    { id: 1024, user: 'admin', action: 'Update Firewall Rules', ip: '192.168.1.50', time: '2025-12-26 10:30:00', status: 'Success' },
-    { id: 1023, user: 'manager', action: 'Reboot Router (IMO993)', ip: '10.10.20.5', time: '2025-12-26 09:15:22', status: 'Success' },
-    { id: 1022, user: 'system', action: 'Auto-Sync Crew List', ip: 'Localhost', time: '2025-12-26 08:00:00', status: 'Warning' },
-    { id: 1021, user: 'admin', action: 'Delete Voucher VOU-992', ip: '192.168.1.50', time: '2025-12-25 16:45:10', status: 'Success' },
-];
+// --- Helper: map state UI -> payload backend ---
+const buildPayload = () => {
+  return {
+    primary_link: networkConfig.primary_link,
+    sdwan_mode: networkConfig.sdwan_mode,
+    firewall: networkConfig.firewall,
 
-const saveSettings = () => {
-    isSaving.value = true;
-    setTimeout(() => { isSaving.value = false; }, 1500);
+    block_youtube: networkConfig.blocked_apps.youtube,
+    block_facebook: networkConfig.blocked_apps.facebook,
+    block_tiktok: networkConfig.blocked_apps.tiktok,
+
+    snr_threshold: Number(alertsConfig.snr_threshold),
+    quota_warning: Number(alertsConfig.daily_quota_warning),
+    recipients: alertsConfig.recipients,
+
+    starlink_api_key: integrations.starlink_api,
+    weather_api: !!integrations.weather_api,
+  };
 };
+
+// --- Helper: map response backend -> state UI ---
+const applyFromBackend = (data) => {
+  if (!data) return;
+
+  // Network
+  if (data.primary_link !== undefined) networkConfig.primary_link = data.primary_link;
+  if (data.sdwan_mode !== undefined) networkConfig.sdwan_mode = data.sdwan_mode;
+  if (data.firewall !== undefined) networkConfig.firewall = !!data.firewall;
+
+  if (data.block_youtube !== undefined) networkConfig.blocked_apps.youtube = !!data.block_youtube;
+  if (data.block_facebook !== undefined) networkConfig.blocked_apps.facebook = !!data.block_facebook;
+  if (data.block_tiktok !== undefined) networkConfig.blocked_apps.tiktok = !!data.block_tiktok;
+
+  // Alerts
+  if (data.snr_threshold !== undefined) alertsConfig.snr_threshold = Number(data.snr_threshold);
+  if (data.quota_warning !== undefined) alertsConfig.daily_quota_warning = Number(data.quota_warning);
+  if (data.recipients !== undefined) alertsConfig.recipients = data.recipients;
+
+  // Integrations
+  if (data.starlink_api_key !== undefined) integrations.starlink_api = data.starlink_api_key;
+  if (data.weather_api !== undefined) integrations.weather_api = !!data.weather_api;
+};
+
+const loadSettings = async () => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/settings');
+    applyFromBackend(res.data);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const loadLogs = async () => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/audit-logs');
+    auditLogs.value = Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+// 1. Load Settings & Logs khi vào trang
+onMounted(async () => {
+  await loadSettings();
+  await loadLogs();
+});
+
+// 2. Lưu cấu hình
+const saveSettings = async () => {
+  isSaving.value = true;
+  try {
+    const payload = buildPayload();
+    await axios.put('http://localhost:8080/api/settings', payload);
+
+    // Sau khi lưu xong thì load lại settings + logs để đồng bộ UI
+    await loadSettings();
+    await loadLogs();
+  } catch (e) {
+    alert("Lỗi lưu: " + (e?.response?.data?.error || e.message));
+  } finally {
+    setTimeout(() => { isSaving.value = false; }, 800);
+  }
+};
+
+const formatDate = (d) => new Date(d).toLocaleString();
 </script>
 
 <template>
@@ -179,7 +261,9 @@ const saveSettings = () => {
                                 </div>
                                 <button class="btn btn-sm btn-outline-light">Configure</button>
                             </div>
-                            <input type="password" class="form-control" value="sk_live_51Mxxxxxxxxxxxxxxxxxx" disabled>
+
+                            <!-- ✅ Không thay đổi UI, chỉ đổi thành v-model -->
+                            <input type="password" class="form-control" v-model="integrations.starlink_api" placeholder="Enter Starlink API key">
                         </div>
 
                         <div class="glass-inset p-4 rounded">
@@ -190,7 +274,7 @@ const saveSettings = () => {
                                     <small class="text-secondary">Overlay weather maps on fleet view.</small>
                                 </div>
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" checked>
+                                    <input class="form-check-input" type="checkbox" v-model="integrations.weather_api">
                                 </div>
                             </div>
                         </div>
@@ -207,11 +291,18 @@ const saveSettings = () => {
                                 <thead><tr><th>Time</th><th>User</th><th>Action</th><th>IP Address</th><th>Status</th></tr></thead>
                                 <tbody>
                                     <tr v-for="log in auditLogs" :key="log.id">
-                                        <td class="text-secondary font-monospace small">{{ log.time }}</td>
+                                        <td class="text-secondary font-monospace small">{{ formatDate(log.created_at) }}</td>
                                         <td class="fw-bold text-white">{{ log.user }}</td>
                                         <td class="text-white">{{ log.action }}</td>
-                                        <td class="text-secondary font-monospace small">{{ log.ip }}</td>
-                                        <td><span class="badge" :class="log.status==='Success'?'bg-success bg-opacity-25 text-success':'bg-warning bg-opacity-25 text-warning'">{{ log.status }}</span></td>
+                                        <td class="text-secondary font-monospace small">{{ log.ip_address }}</td>
+                                        <td>
+                                          <span
+                                            class="badge"
+                                            :class="log.status==='Success' ? 'bg-success bg-opacity-25 text-success' : 'bg-warning bg-opacity-25 text-warning'"
+                                          >
+                                            {{ log.status }}
+                                          </span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>

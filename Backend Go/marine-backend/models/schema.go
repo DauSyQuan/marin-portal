@@ -88,3 +88,33 @@ type ResetInput struct {
 	NewPassword string `json:"new_password" binding:"required"`
 	SecretKey   string `json:"secret_key" binding:"required"`
 }
+type SystemConfig struct {
+	ID uint `json:"id" gorm:"primaryKey"`
+	
+	// Network Config
+	PrimaryLink   string `json:"primary_link"`
+	SdwanMode     string `json:"sdwan_mode"`
+	Firewall      bool   `json:"firewall"`
+	BlockYoutube  bool   `json:"block_youtube"`
+	BlockFacebook bool   `json:"block_facebook"`
+	BlockTiktok   bool   `json:"block_tiktok"`
+	
+	// Alert Config
+	SnrThreshold  float64 `json:"snr_threshold"`
+	QuotaWarning  int     `json:"quota_warning"`
+	Recipients    string  `json:"recipients"`
+	
+	// Integration
+	StarlinkApiKey string `json:"starlink_api_key"`
+	WeatherApi     bool   `json:"weather_api"`
+}
+
+// 8. Nhật ký hệ thống (Audit Logs)
+type AuditLog struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	User      string    `json:"user"`      // Người thực hiện
+	Action    string    `json:"action"`    // Hành động (VD: Update Config)
+	IPAddress string    `json:"ip_address"` // IP người dùng
+	Status    string    `json:"status"`    // Success/Failed
+	CreatedAt time.Time `json:"created_at"` // Thời gian
+}

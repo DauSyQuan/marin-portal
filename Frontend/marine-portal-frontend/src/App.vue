@@ -32,20 +32,26 @@ body { overflow: hidden; }
 /* Sidebar Kính */
 .sidebar-wrapper {
     width: 260px; height: 100%; position: fixed; z-index: 20; left: 0; top: 0;
-    /* Hiệu ứng kính cho Sidebar */
     background: rgba(15, 23, 42, 0.6); 
     backdrop-filter: blur(10px);
     border-right: 1px solid rgba(255,255,255,0.1);
 }
 
+/* ✅ Language switch: né header dashboard */
+.top-lang {
+  position: fixed;
+  top: 72px;       /* ✅ đẩy xuống dưới header */
+  right: 26px;     /* ✅ né cụm nút bên phải */
+  z-index: 60;
+}
+
 .main-wrapper {
     flex-grow: 1; margin-left: 260px;
-    padding: 20px; /* Tăng khoảng cách cho đẹp */
+    padding: 20px;
     height: 100vh;
 }
 
 .main-content {
-    /* KHÔNG DÙNG MÀU NỀN NỮA -> TRONG SUỐT */
     background-color: transparent; 
     width: 100%; height: 100%;
     min-height: calc(100vh - 40px);
@@ -55,18 +61,17 @@ body { overflow: hidden; }
     overflow-x: hidden;
 }
 
-/* ✅ Login mode: full screen, không bo góc, không padding */
 .main-wrapper.login-mode { 
     margin-left: 0; 
     padding: 0; 
 }
 
-/* ✅ Quan trọng: bỏ bo tròn và overflow khi login */
+/* ✅ Login mode: full screen, không bo góc */
 .main-content.login-content {
     border-radius: 0 !important;
     min-height: 100vh !important;
     height: 100vh !important;
-    overflow: hidden !important; /* để không scroll lỗi */
+    overflow: hidden !important;
 }
 
 /* Scrollbar */

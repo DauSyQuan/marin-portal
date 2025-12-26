@@ -1,8 +1,12 @@
 <script setup>
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useI18nStore } from "@/stores/i18n";
+import LanguageSwitch from "@/components/LanguageSwitch.vue";
 
 const auth = useAuthStore();
+const i18n = useI18nStore();
+
 const username = ref('');
 const password = ref('');
 const errorMsg = ref('');
@@ -10,12 +14,11 @@ const isLoading = ref(false);
 const showPass = ref(false);
 
 const handleLogin = async () => {
-    if (isLoading.value) return; // ✅ chặn spam click
+    if (isLoading.value) return;
 
     isLoading.value = true;
     errorMsg.value = '';
 
-    // ✅ fake delay để UI đẹp
     await new Promise(r => setTimeout(r, 800));
 
     try {
@@ -29,63 +32,70 @@ const handleLogin = async () => {
 </script>
 
 <template>
-    <!-- WRAPPER FULL MÀN HÌNH -->
     <div class="login-container">
-        
-        <!-- 1. HÌNH NỀN -->
         <div class="bg-image"></div>
-        
-        <!-- 2. FORM ĐĂNG NHẬP -->
+
         <div class="glass-form">
-            
+
+            <!-- ✅ Language switch inside login (compact + không quá to) -->
+            <div class="lang-login">
+                <LanguageSwitch variant="compact" />
+            </div>
+
             <!-- Logo -->
             <div class="text-center mb-4">
                 <div class="logo-box mb-3">
                     <i class="fa-solid fa-anchor fa-2x text-white"></i>
                 </div>
-                <h3 class="fw-bold text-white tracking-wide">MARINE PRO</h3>
-                <p class="text-white-50 small text-uppercase">Fleet Command System</p>
+                <h3 class="fw-bold text-white tracking-wide">{{ i18n.t('login_title') }}</h3>
+                <p class="text-white-50 small text-uppercase">{{ i18n.t('login_subtitle') }}</p>
             </div>
 
             <form @submit.prevent="handleLogin">
                 <div class="mb-3">
-                    <input v-model="username" class="glass-input" placeholder="Username" required :disabled="isLoading">
+                    <input
+                      v-model="username"
+                      class="glass-input"
+                      :placeholder="i18n.t('username')"
+                      required
+                      :disabled="isLoading"
+                    >
                 </div>
 
                 <div class="mb-4 position-relative">
                     <input
                         v-model="password"
-                        :type="showPass ? 'text' : 'password'"
+                        :type="showPass?'text':'password'"
                         class="glass-input"
-                        placeholder="Password"
+                        :placeholder="i18n.t('password')"
                         required
                         :disabled="isLoading"
                     >
-                    <span class="eye-icon" @click="showPass = !showPass">
-                        <i :class="showPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+                    <span class="eye-icon" @click="showPass=!showPass">
+                        <i :class="showPass?'fa-solid fa-eye-slash':'fa-solid fa-eye'"></i>
                     </span>
                 </div>
 
                 <div class="d-flex justify-content-between mb-4 text-white-50 small px-1">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="rem" :disabled="isLoading">
-                        <label class="form-check-label" for="rem">Ghi nhớ</label>
+                        <label class="form-check-label" for="rem">{{ i18n.t('remember') }}</label>
                     </div>
-                    <a href="#" class="text-white text-decoration-none">Quên mật khẩu?</a>
+                    <a href="#" class="text-white text-decoration-none">{{ i18n.t('forgot') }}</a>
                 </div>
 
-                <!-- ✅ BUTTON LOADING RING XOAY -->
+                <!-- ✅ Loading ring + spinner + text -->
                 <button
                   class="btn-login w-100"
                   :class="{ 'btn-rotating': isLoading }"
                   :disabled="isLoading"
                 >
-                    <span v-if="isLoading" class="d-flex align-items-center justify-content-center gap-2">
+                    <span v-if="isLoading" class="btn-content">
                         <i class="fa-solid fa-spinner fa-spin"></i>
-                        Đang kết nối...
+                        <span class="loading-text">{{ i18n.t('connecting') }}</span>
                     </span>
-                    <span v-else>
-                        ĐĂNG NHẬP
+                    <span v-else class="btn-content">
+                        {{ i18n.t('login_btn') }}
                     </span>
                 </button>
 
@@ -94,7 +104,6 @@ const handleLogin = async () => {
                 </div>
             </form>
         </div>
-
     </div>
 </template>
 
@@ -122,6 +131,14 @@ const handleLogin = async () => {
     backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ✅ Lang switch position */
+.lang-login {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  opacity: 0.95;
 }
 
 /* INPUT */
@@ -161,7 +178,24 @@ const handleLogin = async () => {
     transform: none;
 }
 
-/* ✅ LOADING RING XOAY QUANH NÚT */
+.btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.loading-text {
+  animation: pulseText 1s ease-in-out infinite;
+  letter-spacing: 1px;
+}
+
+@keyframes pulseText {
+  0%, 100% { opacity: 0.7; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
+}
+
+/* ✅ Loading ring */
 .btn-rotating::after {
     content: "";
     position: absolute;
@@ -172,8 +206,6 @@ const handleLogin = async () => {
     animation: ringSpin 1s linear infinite;
     pointer-events: none;
 }
-
-/* Ring spin animation */
 @keyframes ringSpin {
     to { transform: rotate(360deg); }
 }

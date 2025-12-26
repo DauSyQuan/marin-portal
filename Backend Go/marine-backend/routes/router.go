@@ -49,6 +49,12 @@ func SetupRouter() *gin.Engine {
 		api.GET("/settings", controllers.GetSettings)
 		api.PUT("/settings", controllers.UpdateSettings)
 		api.GET("/audit-logs", controllers.GetAuditLogs)
+		// Analytics
+		api.GET("/analytics/overview", controllers.GetAnalyticsOverview)
+		api.GET("/analytics/traffic", controllers.GetAnalyticsTraffic)
+		api.GET("/analytics/top-consumers", controllers.GetAnalyticsTopConsumers)
+		api.GET("/analytics/app-usage", controllers.GetAnalyticsAppUsage)
+
 	}
 
 	return r

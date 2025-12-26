@@ -154,7 +154,8 @@ const formatDate = (d) => new Date(d).toLocaleString();
 
             <!-- CONTENT AREA -->
             <div class="col-md-9">
-                <div class="card glass-panel h-100 p-4 position-relative overflow-hidden">
+                <!-- ✅ CHỈ THÊM class settings-card ĐỂ CHỪA CHỖ NÚT SAVE -->
+                <div class="card glass-panel h-100 p-4 position-relative overflow-hidden settings-card">
                     
                     <!-- TAB 1: SD-WAN & NETWORK -->
                     <div v-if="activeTab === 'network'">
@@ -357,4 +358,9 @@ const formatDate = (d) => new Date(d).toLocaleString();
 
 .fade-in-tab { animation: fadeIn 0.4s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ✅ Chừa khoảng trống đáy để nút Save Changes không đè nội dung */
+.settings-card {
+  padding-bottom: 110px !important;
+}
 </style>

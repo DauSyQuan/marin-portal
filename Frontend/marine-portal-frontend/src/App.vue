@@ -13,7 +13,7 @@ const route = useRoute()
 
     <!-- Nội dung chính -->
     <div class="main-wrapper" :class="{ 'login-mode': route.path === '/login' }">
-      <div class="main-content">
+      <div class="main-content" :class="{ 'login-content': route.path === '/login' }">
         <router-view v-slot="{ Component }">
           <transition name="pure-fade">
             <component :is="Component" :key="route.fullPath" />
@@ -50,10 +50,24 @@ body { overflow: hidden; }
     width: 100%; height: 100%;
     min-height: calc(100vh - 40px);
     border-radius: 32px;
-    position: relative; overflow-y: auto; overflow-x: hidden;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-.main-wrapper.login-mode { margin-left: 0; padding: 0; }
+/* ✅ Login mode: full screen, không bo góc, không padding */
+.main-wrapper.login-mode { 
+    margin-left: 0; 
+    padding: 0; 
+}
+
+/* ✅ Quan trọng: bỏ bo tròn và overflow khi login */
+.main-content.login-content {
+    border-radius: 0 !important;
+    min-height: 100vh !important;
+    height: 100vh !important;
+    overflow: hidden !important; /* để không scroll lỗi */
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
@@ -10,9 +10,14 @@ const isLoading = ref(false);
 const showPass = ref(false);
 
 const handleLogin = async () => {
+    if (isLoading.value) return; // ✅ chặn spam click
+
     isLoading.value = true;
     errorMsg.value = '';
-    await new Promise(r => setTimeout(r, 800)); 
+
+    // ✅ fake delay để UI đẹp
+    await new Promise(r => setTimeout(r, 800));
+
     try {
         await auth.login(username.value, password.value);
     } catch (e) {
@@ -27,10 +32,10 @@ const handleLogin = async () => {
     <!-- WRAPPER FULL MÀN HÌNH -->
     <div class="login-container">
         
-        <!-- 1. HÌNH NỀN (Ảnh bạn gửi) -->
+        <!-- 1. HÌNH NỀN -->
         <div class="bg-image"></div>
         
-        <!-- 2. FORM ĐĂNG NHẬP (KÍNH MỜ Ở GIỮA) -->
+        <!-- 2. FORM ĐĂNG NHẬP -->
         <div class="glass-form">
             
             <!-- Logo -->
@@ -44,25 +49,44 @@ const handleLogin = async () => {
 
             <form @submit.prevent="handleLogin">
                 <div class="mb-3">
-                    <input v-model="username" class="glass-input" placeholder="Username" required>
+                    <input v-model="username" class="glass-input" placeholder="Username" required :disabled="isLoading">
                 </div>
+
                 <div class="mb-4 position-relative">
-                    <input v-model="password" :type="showPass?'text':'password'" class="glass-input" placeholder="Password" required>
-                    <span class="eye-icon" @click="showPass=!showPass">
-                        <i :class="showPass?'fa-solid fa-eye-slash':'fa-solid fa-eye'"></i>
+                    <input
+                        v-model="password"
+                        :type="showPass ? 'text' : 'password'"
+                        class="glass-input"
+                        placeholder="Password"
+                        required
+                        :disabled="isLoading"
+                    >
+                    <span class="eye-icon" @click="showPass = !showPass">
+                        <i :class="showPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
                     </span>
                 </div>
 
                 <div class="d-flex justify-content-between mb-4 text-white-50 small px-1">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="rem">
+                        <input class="form-check-input" type="checkbox" id="rem" :disabled="isLoading">
                         <label class="form-check-label" for="rem">Ghi nhớ</label>
                     </div>
                     <a href="#" class="text-white text-decoration-none">Quên mật khẩu?</a>
                 </div>
 
-                <button class="btn-login w-100" :disabled="isLoading">
-                    {{ isLoading ? 'Đang kết nối...' : 'ĐĂNG NHẬP' }}
+                <!-- ✅ BUTTON LOADING RING XOAY -->
+                <button
+                  class="btn-login w-100"
+                  :class="{ 'btn-rotating': isLoading }"
+                  :disabled="isLoading"
+                >
+                    <span v-if="isLoading" class="d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        Đang kết nối...
+                    </span>
+                    <span v-else>
+                        ĐĂNG NHẬP
+                    </span>
                 </button>
 
                 <div v-if="errorMsg" class="alert-glass mt-3">
@@ -83,26 +107,24 @@ const handleLogin = async () => {
 }
 .bg-image {
     position: absolute; inset: 0;
-    /* LINK ẢNH CỦA BẠN */
     background-image: url('https://c0.wallpaperflare.com/preview/888/665/86/background-blue-calm-gradients.jpg');
     background-size: cover; background-position: center;
-    filter: blur(0px); /* Tắt blur để thấy rõ ảnh nền đẹp */
+    filter: blur(0px);
     z-index: 0;
 }
 
-/* GLASS FORM (KÍNH MỜ) */
+/* GLASS FORM */
 .glass-form {
     position: relative; z-index: 10;
     width: 400px; padding: 40px;
     border-radius: 20px;
-    /* Hiệu ứng trong suốt */
     background: rgba(255, 255, 255, 0.1); 
-    backdrop-filter: blur(15px); /* Làm mờ nền sau lưng form */
+    backdrop-filter: blur(15px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
-/* INPUT STYLES */
+/* INPUT */
 .glass-input {
     width: 100%; padding: 14px 16px;
     background: rgba(0, 0, 0, 0.25);
@@ -118,13 +140,43 @@ const handleLogin = async () => {
 
 /* BUTTON */
 .btn-login {
-    padding: 14px; border: none; border-radius: 10px;
+    padding: 14px; border: none; border-radius: 12px;
     background: linear-gradient(135deg, #3b82f6, #2563eb);
     color: white; font-weight: bold; letter-spacing: 1px;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
 }
-.btn-login:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6); }
+.btn-login:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
+.btn-login:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ✅ LOADING RING XOAY QUANH NÚT */
+.btn-rotating::after {
+    content: "";
+    position: absolute;
+    inset: -55%;
+    border-radius: 999px;
+    border: 4px solid rgba(255, 255, 255, 0.14);
+    border-top-color: rgba(255, 255, 255, 0.6);
+    animation: ringSpin 1s linear infinite;
+    pointer-events: none;
+}
+
+/* Ring spin animation */
+@keyframes ringSpin {
+    to { transform: rotate(360deg); }
+}
 
 /* EXTRAS */
 .logo-box {

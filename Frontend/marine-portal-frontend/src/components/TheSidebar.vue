@@ -64,7 +64,7 @@ const auth = useAuthStore();
         <div class="d-flex align-items-center gap-3">
           <!-- Avatar -->
           <div class="user-avatar">
-            {{ auth.user?.username.charAt(0).toUpperCase() || 'A' }}
+            {{ (auth.user?.username || 'A').charAt(0).toUpperCase() }}
             <span class="status-dot"></span>
           </div>
           <!-- Info -->

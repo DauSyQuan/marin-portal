@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import api from '@/services/api';
 
 // State
 const users = ref([]);
@@ -11,7 +11,7 @@ const searchQuery = ref('');
 const fetchOnlineUsers = async () => {
     loading.value = true;
     try {
-        const res = await axios.get('http://localhost:8080/api/online-users');
+        const res = await api.get('/api/online-users');
         users.value = res.data;
     } catch (e) {
         console.error(e);
@@ -25,122 +25,88 @@ const filteredUsers = computed(() => {
     if (!searchQuery.value) return users.value;
     return users.value.filter(u => 
         u.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        u.framed_ip.includes(searchQuery.value)
+        (u.framed_ip || '').includes(searchQuery.value)
     );
 });
 
-// Kick Action
+// Kick User
 const kickUser = async (username) => {
-    if(!confirm(`Bạn có chắc chắn muốn ngắt kết nối user: ${username}?`)) return;
-    
     try {
-        await axios.post(`http://localhost:8080/api/online-users/${username}/kick`);
-        // Xóa tạm khỏi danh sách local để tạo cảm giác mượt
-        users.value = users.value.filter(u => u.username !== username);
-        alert(`Đã kick user ${username} thành công!`);
+        await api.post(`/api/online-users/${username}/kick`);
+        await fetchOnlineUsers();
     } catch (e) {
-        alert("Lỗi khi kick user: " + e.message);
+        console.error(e);
+        alert('Không thể kick user: ' + (e?.response?.data?.error || e.message));
     }
 };
 
-// Format Bytes (MB/GB)
-const formatBytes = (mb) => {
-    if (!mb) return '0 B';
-    if (mb > 1024) return (mb / 1024).toFixed(2) + ' GB';
-    return mb.toFixed(2) + ' MB';
-};
-
-onMounted(() => {
-    fetchOnlineUsers();
-});
+onMounted(fetchOnlineUsers);
 </script>
 
 <template>
-    <div class="container-fluid p-0">
-        <!-- Title & Breadcrumb placeholder if needed -->
-        <!-- FILTER BAR -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="d-flex gap-2">
-                <div class="input-group" style="width: 300px;">
-                    <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
-                    <input type="text" class="form-control border-start-0 ps-0" v-model="searchQuery" placeholder="Tìm theo username...">
-                </div>
-                <button class="btn btn-white border fw-bold text-secondary" @click="fetchOnlineUsers">Refresh</button>
+    <div class="container-fluid p-0 fade-in-tab">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <div>
+                <small class="text-info fw-bold tracking-wide">LIVE CONNECTIONS</small>
+                <h3 class="fw-bold text-white m-0">Online Users</h3>
             </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-light border rounded-circle"><i class="fa-solid fa-rotate-right"></i></button>
-                <button class="btn btn-light border rounded-circle"><i class="fa-solid fa-expand"></i></button>
-                <button class="btn btn-light border rounded-circle"><i class="fa-solid fa-gear"></i></button>
+            <div class="d-flex gap-2 align-items-center">
+                <input
+                    v-model="searchQuery"
+                    type="text"
+                    class="form-control form-control-sm bg-dark text-white border-secondary"
+                    placeholder="Search username / IP..."
+                    style="width: 230px;"
+                />
+                <button class="btn btn-outline-light btn-sm fw-bold" @click="fetchOnlineUsers" :disabled="loading">
+                    <i class="fa-solid fa-rotate me-2"></i>Refresh
+                </button>
             </div>
         </div>
 
-        <!-- MAIN TABLE -->
-        <div class="card border-0 shadow-sm">
+        <div class="card glass-panel p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light text-secondary small text-uppercase fw-bold">
+                    <thead>
                         <tr>
-                            <th class="ps-4 py-3">Username</th>
-                            <th>NAS IP</th>
-                            <th>Framed IP</th>
-                            <th>Uptime</th>
-                            <th>Upload</th>
-                            <th>Download</th>
-                            <th>Total</th>
-                            <th class="text-center">Hành động</th>
+                            <th class="ps-4">Username</th>
+                            <th>Vessel</th>
+                            <th>IP Address</th>
+                            <th>Mac</th>
+                            <th>Login Time</th>
+                            <th class="text-end pe-4">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="user in filteredUsers" :key="user.username">
-                            <td class="ps-4 fw-bold text-dark">{{ user.username }}</td>
-                            <td class="text-secondary">{{ user.nas_ip }}</td>
-                            <td class="font-monospace text-dark">{{ user.framed_ip }}</td>
-                            <td class="text-secondary">{{ user.uptime }}</td>
-                            <td class="text-secondary">{{ formatBytes(user.upload) }}</td>
-                            <td class="text-secondary">{{ formatBytes(user.download) }}</td>
-                            <td class="fw-bold text-primary">{{ formatBytes(user.total) }}</td>
-                            <td class="text-center">
-                                <button class="btn btn-danger btn-sm text-white px-3 fw-bold" @click="kickUser(user.username)">
-                                    <i class="fa-solid fa-power-off me-1"></i> Kick
-                                </button>
-                            </td>
+                        <tr v-if="loading">
+                            <td colspan="6" class="text-center py-4 text-white-50">Loading...</td>
                         </tr>
-                        <tr v-if="filteredUsers.length === 0">
-                            <td colspan="8" class="text-center py-5 text-muted">
-                                <div v-if="loading" class="spinner-border spinner-border-sm text-primary"></div>
-                                <span v-else>Không có user nào đang online.</span>
+
+                        <tr v-else-if="filteredUsers.length === 0">
+                            <td colspan="6" class="text-center py-4 text-white-50">No online users found.</td>
+                        </tr>
+
+                        <tr v-else v-for="u in filteredUsers" :key="u.username">
+                            <td class="ps-4 fw-bold text-white">{{ u.username }}</td>
+                            <td class="text-white-50">{{ u.ship_name || 'N/A' }}</td>
+                            <td class="font-monospace text-info">{{ u.framed_ip || 'N/A' }}</td>
+                            <td class="font-monospace text-white-50">{{ u.mac_address || 'N/A' }}</td>
+                            <td class="text-white-50">{{ u.login_time || 'N/A' }}</td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-danger" @click="kickUser(u.username)">
+                                    <i class="fa-solid fa-ban me-2"></i>Kick
+                                </button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-            </div>
-            
-            <!-- Pagination Fake -->
-            <div class="card-footer bg-white py-3 d-flex justify-content-end align-items-center">
-                <small class="text-secondary me-3">1-{{ filteredUsers.length }} of {{ filteredUsers.length }} items</small>
-                <nav>
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item disabled"><a class="page-link" href="#">&lt;</a></li>
-                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                        <li class="page-item disabled"><a class="page-link" href="#">&gt;</a></li>
-                    </ul>
-                </nav>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.font-monospace { font-family: 'Consolas', 'Courier New', monospace; }
-/* Nút Kick màu đỏ giống hình */
-.btn-danger {
-    background-color: #f56c6c;
-    border-color: #f56c6c;
-    border-radius: 4px;
-    font-size: 0.8rem;
-}
-.btn-danger:hover {
-    background-color: #f78989;
-    border-color: #f78989;
-}
+.tracking-wide { letter-spacing: 1px; }
+.fade-in-tab { animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 </style>

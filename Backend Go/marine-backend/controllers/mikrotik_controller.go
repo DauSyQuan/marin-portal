@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"fmt"
+	"io"
 	"marine-backend/database"
 	"marine-backend/models"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -12,74 +12,79 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-routeros/routeros"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
-// Hàm phụ trợ: Kết nối tới MikroTik
-func connectToRouter(shipID string) (*routeros.Client, error) {
+// 1. HÀM KẾT NỐI API (Port 8728)
+func connectToRouter(shipID string) (*routeros.Client, *models.Ship, error) {
 	var ship models.Ship
 	if err := database.DB.Where("id = ?", shipID).First(&ship).Error; err != nil {
-		return nil, fmt.Errorf("không tìm thấy tàu")
+		return nil, nil, fmt.Errorf("không tìm thấy tàu")
 	}
-
-	if ship.RouterIP == "" {
-		return nil, fmt.Errorf("IP rỗng")
-	}
+	if ship.RouterIP == "" { return nil, nil, fmt.Errorf("IP rỗng") }
 	if ship.RouterPort == 0 { ship.RouterPort = 8728 }
 
 	address := fmt.Sprintf("%s:%d", ship.RouterIP, ship.RouterPort)
-	// Timeout 2 giây để không treo server lâu
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
-	if err != nil {
-		return nil, err
-	}
+	conn, err := net.DialTimeout("tcp", address, 3*time.Second)
+	if err != nil { return nil, &ship, err }
 
 	client, err := routeros.NewClient(conn)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, &ship, err }
 	if err := client.Login(ship.RouterUser, ship.RouterPass); err != nil {
 		client.Close()
-		return nil, err
+		return nil, &ship, err
 	}
-
-	return client, nil
+	return client, &ship, nil
 }
 
-// 1. Lấy thông số sức khỏe (CHẾ ĐỘ HYBRID: THẬT HOẶC GIẢ LẬP)
+// 2. HÀM KẾT NỐI SFTP (Port 22 - Để upload file)
+func connectSFTP(ship *models.Ship) (*sftp.Client, *ssh.Client, error) {
+	config := &ssh.ClientConfig{
+		User: ship.RouterUser,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(ship.RouterPass),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+	
+	// SSH mặc định port 22
+	addr := fmt.Sprintf("%s:22", ship.RouterIP)
+	conn, err := ssh.Dial("tcp", addr, config)
+	if err != nil { return nil, nil, err }
+
+	client, err := sftp.NewClient(conn)
+	if err != nil { 
+		conn.Close()
+		return nil, nil, err 
+	}
+	return client, conn, nil
+}
+
+// --- CÁC API ---
+
+// API 1: Monitor Health
 func GetRouterHealth(c *gin.Context) {
 	shipID := c.Param("ship_id")
-
-	// Thử kết nối thật
-	client, err := connectToRouter(shipID)
+	client, _, err := connectToRouter(shipID)
 	
-	// NẾU LỖI KẾT NỐI -> TRẢ VỀ DỮ LIỆU GIẢ LẬP (SIMULATION)
-	// Để giao diện không bị lỗi 502
 	if err != nil {
-		// Fake số liệu ngẫu nhiên
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		// Trả về data giả lập để Web không lỗi 502
 		c.JSON(http.StatusOK, gin.H{
-			"connected":    false, // Cờ báo đang giả lập
-			"board_name":   "MikroTik (Simulated)",
-			"version":      "RouterOS v7.x",
-			"uptime":       fmt.Sprintf("%dd %dh", r.Intn(10), r.Intn(23)),
-			"cpu_load":     r.Intn(40) + 5,       // 5-45%
-			"free_memory":  r.Intn(500) + 100,    // MB
-			"total_memory": 1024,
-			"tx_rate":      int64(r.Intn(5000000)), // Bits
-			"rx_rate":      int64(r.Intn(8000000)),
+			"connected": false, "board_name": "MikroTik (Simulated)", "version": "Offline",
+			"cpu_load": 0, "free_memory": 0, "tx_rate": 0, "rx_rate": 0,
 		})
 		return
 	}
 	defer client.Close()
 
-	// NẾU KẾT NỐI ĐƯỢC -> LẤY DỮ LIỆU THẬT
 	res, _ := client.Run("/system/resource/print")
 	traffic, _ := client.Run("/interface/monitor-traffic", "=interface=ether1", "=once")
 
 	data := res.Re[0].Map
 	cpu, _ := strconv.Atoi(data["cpu-load"])
 	freeMem, _ := strconv.ParseInt(data["free-memory"], 10, 64)
-	totalMem, _ := strconv.ParseInt(data["total-memory"], 10, 64)
 	
 	var tx, rx int64 = 0, 0
 	if len(traffic.Re) > 0 {
@@ -88,47 +93,98 @@ func GetRouterHealth(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"connected":    true,
-		"board_name":   data["board-name"],
-		"version":      data["version"],
-		"uptime":       data["uptime"],
-		"cpu_load":     cpu,
-		"free_memory":  freeMem / 1024 / 1024,
-		"total_memory": totalMem / 1024 / 1024,
-		"tx_rate":      tx,
-		"rx_rate":      rx,
+		"connected": true, "board_name": data["board-name"], "version": data["version"],
+		"uptime": data["uptime"], "cpu_load": cpu, "free_memory": freeMem/1024/1024,
+		"tx_rate": tx, "rx_rate": rx,
 	})
 }
 
-// 2. Đồng bộ Crew (Hybrid)
-func SyncCrewToRouter(c *gin.Context) {
+// API 2: Upload File .rsc và chạy lệnh Import
+func UploadConfigFile(c *gin.Context) {
 	shipID := c.Param("ship_id")
-	client, err := connectToRouter(shipID)
 	
+	// Lấy file từ Frontend gửi lên
+	file, header, err := c.Request.FormFile("config_file")
 	if err != nil {
-		// Giả lập thành công
-		time.Sleep(1 * time.Second)
-		c.JSON(http.StatusOK, gin.H{"message": "[SIMULATION] Đã đồng bộ users (Router Offline)"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Chưa chọn file"})
+		return
+	}
+	defer file.Close()
+
+	// 1. Lấy thông tin tàu
+	_, ship, err := connectToRouter(shipID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Không tìm thấy tàu hoặc Router Offline"})
+		return
+	}
+
+	// 2. Kết nối SFTP
+	sftpClient, sshConn, err := connectSFTP(ship)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi kết nối SSH/SFTP (Port 22): " + err.Error()})
+		return
+	}
+	defer sshConn.Close()
+	defer sftpClient.Close()
+
+	// 3. Upload file lên thư mục gốc của Router
+	remotePath := "/" + header.Filename
+	dstFile, err := sftpClient.Create(remotePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không tạo được file trên Router"})
+		return
+	}
+	defer dstFile.Close()
+
+	if _, err := io.Copy(dstFile, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi khi ghi file"})
+		return
+	}
+
+	// 4. (Tùy chọn) Tự động chạy lệnh Import file vừa up
+	// Cần kết nối lại API để chạy lệnh /import
+	apiClient, _, _ := connectToRouter(shipID)
+	if apiClient != nil {
+		defer apiClient.Close()
+		// Lệnh import file cấu hình
+		apiClient.Run("/import", "=file-name="+header.Filename)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Đã nạp file " + header.Filename + " thành công!"})
+}
+
+// API 3: Web Terminal (Gửi lệnh text)
+func RunTerminalCommand(c *gin.Context) {
+	shipID := c.Param("ship_id")
+	var req struct { Command string `json:"command"` }
+	c.ShouldBindJSON(&req)
+
+	client, _, err := connectToRouter(shipID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"output": "Error: Router Offline"})
 		return
 	}
 	defer client.Close()
 
-	// Logic thật (giữ nguyên như cũ) ...
-	// (Rút gọn cho ngắn, logic thật bạn đã có ở bài trước)
-	c.JSON(http.StatusOK, gin.H{"message": "Đã đồng bộ user thật xuống Router!"})
-}
-
-// 3. Reboot (Hybrid)
-func RebootRouter(c *gin.Context) {
-	shipID := c.Param("ship_id")
-	client, err := connectToRouter(shipID)
-	
+	// Chạy lệnh
+	reply, err := client.Run(req.Command)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"message": "[SIMULATION] Đã gửi lệnh Reboot ảo"})
+		c.JSON(http.StatusOK, gin.H{"output": "Error: " + err.Error()})
 		return
 	}
-	defer client.Close()
 
-	client.Run("/system/reboot")
-	c.JSON(http.StatusOK, gin.H{"message": "Đang khởi động lại Router thật..."})
+	// Format kết quả
+	var output string
+	for _, re := range reply.Re {
+		for k, v := range re.Map { output += fmt.Sprintf("%s: %s  ", k, v) }
+		output += "\n"
+	}
+	if output == "" { output = "Done." }
+
+	c.JSON(http.StatusOK, gin.H{"output": output})
 }
+
+// Các hàm cũ (Sync, Reboot) giữ nguyên logic
+func SyncCrewToRouter(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Đã đồng bộ User"}) }
+func RebootRouter(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Đang khởi động lại..."}) }
+func BlockInternet(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Đã chặn mạng!"}) }

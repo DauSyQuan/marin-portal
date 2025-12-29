@@ -1,23 +1,25 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import api from '@/services/api';
+import axios from 'axios';
 
 const activeTab = ref('network');
 const isSaving = ref(false);
 const auditLogs = ref([]);
 
 // --- STATE CẤU HÌNH ---
+// Giữ nguyên các biến bạn đang dùng trong template (networkConfig, alertsConfig, integrations)
+// nhưng bây giờ sẽ map dữ liệu thật từ backend vào.
 const networkConfig = reactive({
   firewall: true,
-  dpi: true,
+  dpi: true, // Deep Packet Inspection (backend chưa có field -> vẫn giữ UI)
   sdwan_mode: 'failover',
   primary_link: 'vsat_ka',
-  secondary_link: '4g_lte',
+  secondary_link: '4g_lte', // backend chưa có field -> giữ UI
   blocked_apps: {
     youtube: false,
     facebook: true,
     tiktok: true,
-    torrent: true
+    torrent: true // backend chưa có field -> giữ UI
   }
 });
 
@@ -25,37 +27,40 @@ const alertsConfig = reactive({
   snr_threshold: 5.0,
   daily_quota_warning: 80,
   recipients: 'noc@marine-corp.com; fleet.mgr@marine-corp.com',
-  channels: { email: true, sms: false, webhook: true }
+  channels: { email: true, sms: false, webhook: true } // backend chưa có -> giữ UI
 });
 
 const integrations = reactive({
   starlink_api: '',
-  inmarsat_key: '',
+  inmarsat_key: '', // backend chưa có -> giữ UI
   weather_api: true
 });
 
 // --- Helper: map state UI -> payload backend ---
-const buildPayload = () => ({
-  primary_link: networkConfig.primary_link,
-  sdwan_mode: networkConfig.sdwan_mode,
-  firewall: networkConfig.firewall,
+const buildPayload = () => {
+  return {
+    primary_link: networkConfig.primary_link,
+    sdwan_mode: networkConfig.sdwan_mode,
+    firewall: networkConfig.firewall,
 
-  block_youtube: networkConfig.blocked_apps.youtube,
-  block_facebook: networkConfig.blocked_apps.facebook,
-  block_tiktok: networkConfig.blocked_apps.tiktok,
+    block_youtube: networkConfig.blocked_apps.youtube,
+    block_facebook: networkConfig.blocked_apps.facebook,
+    block_tiktok: networkConfig.blocked_apps.tiktok,
 
-  snr_threshold: Number(alertsConfig.snr_threshold),
-  quota_warning: Number(alertsConfig.daily_quota_warning),
-  recipients: alertsConfig.recipients,
+    snr_threshold: Number(alertsConfig.snr_threshold),
+    quota_warning: Number(alertsConfig.daily_quota_warning),
+    recipients: alertsConfig.recipients,
 
-  starlink_api_key: integrations.starlink_api,
-  weather_api: !!integrations.weather_api,
-});
+    starlink_api_key: integrations.starlink_api,
+    weather_api: !!integrations.weather_api,
+  };
+};
 
 // --- Helper: map response backend -> state UI ---
 const applyFromBackend = (data) => {
   if (!data) return;
 
+  // Network
   if (data.primary_link !== undefined) networkConfig.primary_link = data.primary_link;
   if (data.sdwan_mode !== undefined) networkConfig.sdwan_mode = data.sdwan_mode;
   if (data.firewall !== undefined) networkConfig.firewall = !!data.firewall;
@@ -64,41 +69,48 @@ const applyFromBackend = (data) => {
   if (data.block_facebook !== undefined) networkConfig.blocked_apps.facebook = !!data.block_facebook;
   if (data.block_tiktok !== undefined) networkConfig.blocked_apps.tiktok = !!data.block_tiktok;
 
+  // Alerts
   if (data.snr_threshold !== undefined) alertsConfig.snr_threshold = Number(data.snr_threshold);
   if (data.quota_warning !== undefined) alertsConfig.daily_quota_warning = Number(data.quota_warning);
   if (data.recipients !== undefined) alertsConfig.recipients = data.recipients;
 
+  // Integrations
   if (data.starlink_api_key !== undefined) integrations.starlink_api = data.starlink_api_key;
   if (data.weather_api !== undefined) integrations.weather_api = !!data.weather_api;
 };
 
 const loadSettings = async () => {
   try {
-    const res = await api.get('/api/settings');
+    const res = await axios.get('http://localhost:8080/api/settings');
     applyFromBackend(res.data);
   } catch (e) {
-    console.error("loadSettings error:", e);
+    console.error(e);
   }
 };
 
 const loadLogs = async () => {
   try {
-    const res = await api.get('/api/audit-logs');
+    const res = await axios.get('http://localhost:8080/api/audit-logs');
     auditLogs.value = Array.isArray(res.data) ? res.data : [];
   } catch (e) {
-    console.error("loadLogs error:", e);
+    console.error(e);
   }
 };
 
+// 1. Load Settings & Logs khi vào trang
 onMounted(async () => {
   await loadSettings();
   await loadLogs();
 });
 
+// 2. Lưu cấu hình
 const saveSettings = async () => {
   isSaving.value = true;
   try {
-    await api.put('/api/settings', buildPayload());
+    const payload = buildPayload();
+    await axios.put('http://localhost:8080/api/settings', payload);
+
+    // Sau khi lưu xong thì load lại settings + logs để đồng bộ UI
     await loadSettings();
     await loadLogs();
   } catch (e) {

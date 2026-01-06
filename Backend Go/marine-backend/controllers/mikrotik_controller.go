@@ -17,7 +17,7 @@ import (
 )
 
 // 1. HÀM KẾT NỐI API (Port 8728)
-func connectToRouter(shipID string) (*routeros.Client, *models.Ship, error) {
+func ConnectToRouter(shipID string) (*routeros.Client, *models.Ship, error) {
 	var ship models.Ship
 	if err := database.DB.Where("id = ?", shipID).First(&ship).Error; err != nil {
 		return nil, nil, fmt.Errorf("không tìm thấy tàu")
@@ -183,7 +183,72 @@ func RunTerminalCommand(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"output": output})
 }
+// HÀM MỚI: Áp dụng chặn ứng dụng theo cấu hình
+func ApplyFirewallRules(c *gin.Context) {
+	shipID := "IMO9562623" // ID tàu đang test (Hoặc lấy từ params)
+	
+	// Nhận cấu hình từ Frontend gửi lên
+	var config struct {
+		BlockYoutube  bool `json:"block_youtube"`
+		BlockFacebook bool `json:"block_facebook"`
+		BlockTiktok   bool `json:"block_tiktok"`
+		BlockTorrent  bool `json:"block_torrent"`
+	}
+	if err := c.ShouldBindJSON(&config); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
+	client, _, err := connectToRouter(shipID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Router Offline"})
+		return
+	}
+	defer client.Close()
+
+	// 1. Xóa các luật cũ của Marine Pro để tránh trùng lặp
+	// Tìm các rule có comment="MARINE_BLOCK_..."
+	existingL7, _ := client.Run("/ip/firewall/layer7-protocol/print", "?comment=MARINE_BLOCK")
+	for _, r := range existingL7.Re {
+		client.Run("/ip/firewall/layer7-protocol/remove", "=.id="+r.Map[".id"])
+	}
+	existingFilter, _ := client.Run("/ip/firewall/filter/print", "?comment=MARINE_BLOCK")
+	for _, r := range existingFilter.Re {
+		client.Run("/ip/firewall/filter/remove", "=.id="+r.Map[".id"])
+	}
+
+	// 2. Định nghĩa Regex (Mẫu nhận diện ứng dụng)
+	apps := map[string]string{
+		"Youtube":  "^.+(youtube.com|googlevideo.com|youtu.be).*$",
+		"Facebook": "^.+(facebook.com|facebook.net|fbcdn.net|messenger.com).*$",
+		"Tiktok":   "^.+(tiktok.com|tiktokv.com|muscdn.com).*$",
+		"Torrent":  "^.+(torrent|tracker|announce|bitcomet|thunder).*$",
+	}
+
+	// 3. Tạo luật chặn mới dựa trên config
+	createBlockRule := func(appName string, regex string) {
+		// Tạo L7 Protocol
+		client.Run("/ip/firewall/layer7-protocol/add", 
+			"=name="+appName, 
+			"=regexp="+regex, 
+			"=comment=MARINE_BLOCK",
+		)
+		// Tạo Filter Rule (Drop)
+		client.Run("/ip/firewall/filter/add", 
+			"=chain=forward", 
+			"=layer7-protocol="+appName, 
+			"=action=drop", 
+			"=comment=MARINE_BLOCK",
+		)
+	}
+
+	if config.BlockYoutube { createBlockRule("Youtube", apps["Youtube"]) }
+	if config.BlockFacebook { createBlockRule("Facebook", apps["Facebook"]) }
+	if config.BlockTiktok { createBlockRule("Tiktok", apps["Tiktok"]) }
+	if config.BlockTorrent { createBlockRule("Torrent", apps["Torrent"]) }
+
+	c.JSON(http.StatusOK, gin.H{"message": "Đã cập nhật Tường lửa thành công!"})
+}
 // Các hàm cũ (Sync, Reboot) giữ nguyên logic
 func SyncCrewToRouter(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Đã đồng bộ User"}) }
 func RebootRouter(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "Đang khởi động lại..."}) }

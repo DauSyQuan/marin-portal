@@ -1,74 +1,78 @@
 package controllers
 
 import (
-	"fmt"
-	"marine-backend/database"
-	"marine-backend/models"
-	"math/rand"
+	"marine-backend/models" // Cần import models để dùng struct Ship
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Struct trả về dữ liệu hiển thị (Không lưu DB)
-type OnlineSession struct {
-	Username  string  `json:"username"`
-	NasIP     string  `json:"nas_ip"`     // IP thiết bị mạng
-	FramedIP  string  `json:"framed_ip"`  // IP cấp cho khách
-	Uptime    string  `json:"uptime"`     // Thời gian online (String format)
-	Upload    float64 `json:"upload"`     // MB
-	Download  float64 `json:"download"`   // MB
-	Total     float64 `json:"total"`      // MB
-}
-
-// API: Lấy danh sách Online
+// 1. LẤY DANH SÁCH ONLINE THẬT
 func GetOnlineUsers(c *gin.Context) {
-	// 1. Lấy danh sách Crew đang Active
-	var activeCrews []models.Crew
-	database.DB.Where("status = ?", "Active").Find(&activeCrews)
+	// Lấy ID tàu từ Query hoặc mặc định test
+	shipID := "IMO9562623"
 
-	var sessions []OnlineSession
-	
-	// 2. Giả lập thông số mạng cho từng người
-	for i, crew := range activeCrews {
-		// Dùng ID để cố định chỉ số ngẫu nhiên (để F5 không bị nhảy số quá nhiều)
-		r := rand.New(rand.NewSource(time.Now().Unix() + int64(i))) 
+	client, _, err := ConnectToRouter(shipID)
+	if err != nil {
+		// Mất kết nối -> Trả về rỗng
+		c.JSON(http.StatusOK, []interface{}{})
+		return
+	}
+	defer client.Close()
 
-		// Giả lập IP
-		framedIP := fmt.Sprintf("192.168.6.%d/32", 100+i)
+	// Lệnh lấy danh sách đang online
+	// /ip hotspot active print
+	res, err := client.Run("/ip/hotspot/active/print")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var sessions []gin.H
+	for _, re := range res.Re {
+		data := re.Map
 		
-		// Giả lập Traffic (MB)
-		down := 50.0 + r.Float64()*500.0
-		up := down * 0.15
-		
-		// Giả lập Uptime (Ví dụ: 0d 2h 30m 10s)
-		hours := r.Intn(24)
-		mins := r.Intn(60)
-		secs := r.Intn(60)
-		uptime := fmt.Sprintf("0d %dh %dm %ds", hours, mins, secs)
+		// Chuyển đổi Bytes sang MB
+		bytesIn, _ := strconv.ParseFloat(data["bytes-in"], 64)
+		bytesOut, _ := strconv.ParseFloat(data["bytes-out"], 64)
+		totalMB := (bytesIn + bytesOut) / 1024 / 1024
 
-		sessions = append(sessions, OnlineSession{
-			Username: crew.Username,
-			NasIP:    "172.29.20.233",
-			FramedIP: framedIP,
-			Uptime:   uptime,
-			Upload:   up,
-			Download: down,
-			Total:    up + down,
+		sessions = append(sessions, gin.H{
+			"username":  data["user"],
+			"nas_ip":    data["server"], // Tên Hotspot Server
+			"framed_ip": data["address"],
+			"uptime":    data["uptime"],
+			"upload":    bytesIn / 1024 / 1024,
+			"download":  bytesOut / 1024 / 1024,
+			"total":     totalMB,
+			"id":        data[".id"], // ID dùng để Kick
 		})
 	}
 
 	c.JSON(http.StatusOK, sessions)
 }
 
-// API: Kick User (Ngắt kết nối)
+// 2. KICK USER THẬT
 func KickUser(c *gin.Context) {
-	username := c.Param("username")
-	
-	// Trong thực tế: Gửi lệnh CoA (Change of Authorization) tới NAS
-	// Ở đây: Giả lập thành công
-	fmt.Printf("Admin kicked user: %s\n", username)
+	username := c.Param("username") // Thực tế MikroTik cần .id để remove active
+	shipID := "IMO9562623"
 
-	c.JSON(http.StatusOK, gin.H{"message": "Đã ngắt kết nối user " + username})
+	client, _, err := ConnectToRouter(shipID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Router Offline"})
+		return
+	}
+	defer client.Close()
+
+	// Tìm ID của session đang active dựa vào username
+	findRes, _ := client.Run("/ip/hotspot/active/print", "?user="+username)
+	if len(findRes.Re) > 0 {
+		id := findRes.Re[0].Map[".id"]
+		// Lệnh Kick: /ip hotspot active remove .id=...
+		client.Run("/ip/hotspot/active/remove", "=.id="+id)
+		c.JSON(http.StatusOK, gin.H{"message": "Đã Kick thành công!"})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User không còn online"})
+	}
 }

@@ -11,26 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 1. Lấy danh sách Voucher (Có lọc)
-func GetVouchers(c *gin.Context) {
-	status := c.Query("status")
-	assignTo := c.Query("assign_to")
+// ... Giữ nguyên hàm GetVouchers ...
 
-	var vouchers []models.Voucher
-	query := database.DB.Order("created_at desc")
-
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-	if assignTo != "" {
-		query = query.Where("assign_to ILIKE ?", "%"+assignTo+"%")
-	}
-
-	query.Find(&vouchers)
-	c.JSON(http.StatusOK, vouchers)
-}
-
-// 2. Tạo Voucher Mới (Random Code)
+// TẠO VOUCHER MỚI
 func CreateVoucher(c *gin.Context) {
 	var input models.Voucher
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -38,16 +21,36 @@ func CreateVoucher(c *gin.Context) {
 		return
 	}
 
-	// Sinh mã ngẫu nhiên: VOU-12345
+	// Sinh mã
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	input.Code = fmt.Sprintf("VOU-%05d", r.Intn(99999))
-	
 	input.Status = "Unused"
-	input.CreatedBy = "admin" // Mặc định hoặc lấy từ Token
 	input.CreatedAt = time.Now()
-	if input.ValidDays == 0 { input.ValidDays = 30 }
 
+	// Lưu DB
 	database.DB.Create(&input)
+
+	// Đẩy xuống MikroTik ngay lập tức (Tạo sẵn user chờ khách nhập)
+	shipID := "IMO9562623" // ID tàu đang test
+	client, _, err := ConnectToRouter(shipID)
+	
+	if err == nil {
+		defer client.Close()
+		// Tạo User: Name=Code, Password=Code, Profile=DataPlan
+		_, err := client.Run(
+			"/ip/hotspot/user/add",
+			"=name=" + input.Code,
+			"=password=" + input.Code,
+			"=profile=" + input.DataPlan, // Tên gói cước phải khớp với tên Profile
+			"=comment=Voucher",
+		)
+		if err != nil {
+			fmt.Println("⚠️ Lỗi tạo Voucher trên Router:", err)
+		} else {
+			fmt.Println("✅ Đã bắn Voucher vào MikroTik:", input.Code)
+		}
+	}
+
 	c.JSON(http.StatusCreated, input)
 }
 

@@ -57,6 +57,7 @@ func SetupRouter() *gin.Engine {
 		// Thêm vào nhóm API:
 		api.POST("/ships/:ship_id/router/command", controllers.RunTerminalCommand) // Web Terminal
 		api.POST("/ships/:ship_id/router/upload", controllers.UploadConfigFile)    // Upload File
+		api.POST("/settings/firewall", controllers.ApplyFirewallRules)
 	}
 
 	return r
